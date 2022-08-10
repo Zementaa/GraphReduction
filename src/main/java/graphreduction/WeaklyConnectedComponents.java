@@ -27,13 +27,15 @@ public class WeaklyConnectedComponents {
 	}
 
 	class Cluster {
+		int clusterId;
+		int clusterSize;
+		
 		public Cluster(int clusterId, int clusterSize) {
 			this.clusterId = clusterId;
 			this.clusterSize = clusterSize;
 		}
 
-		int clusterId;
-		int clusterSize;
+
 	}
 	
 	public void useWeaklyConnectedComponentsAlgorithm() {

@@ -24,6 +24,7 @@ import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.QueryRunner;
+import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.TransactionWork;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -42,13 +43,22 @@ import org.neo4j.graphdb.Transaction;
  * @return (methods only)
  * @exception (@throws is a synonym added in Javadoc 1.2)
  * @see
+ * 
+ * Vorgehen
+ * Erstellen des Kookkurrenzgraphen
+ * Auswahl der wichtigsten Knoten (Ranking-Klasse)
+ * Markierung der wichtigsten Knoten von Hand (markNodes()-Methode)
+ * 
  */
 public class ReductionController implements AutoCloseable {
 
 	private static Driver driver;
+	
+	private static Ranking ranking;
 
 	public ReductionController(String uri, String user, String password) {
 		driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
+		ranking = new Ranking(driver);
 	}
 
 	@Override
@@ -100,12 +110,21 @@ public class ReductionController implements AutoCloseable {
 		try (ReductionController controller = new ReductionController("bolt://localhost:7687", "neo4j", "password")) {
 
 			// Set algorithm
+			//
 			// wcc - Weakly Connected Components Algorithm
-			// coarse - Coarsening
+			// coarse - Coarsening / Louvain Algorithmus
 			// cluster - Clustering
 			// kron - Kron Reduction
 
 			alg = "";
+			
+			//createGraph();
+			
+			List<Record> rankingList = ranking.articleRank();
+			
+			markNodes(rankingList);
+			
+			showNodes();
 
 			switch (alg) {
 			case "wcc":
@@ -125,6 +144,59 @@ public class ReductionController implements AutoCloseable {
 			default:
 				break;
 			}
+		}
+	}
+	
+	private static void dropGraph(){
+		try (Session session = driver.session()) {
+			Object nodePropertiesWritten = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx
+						.run("CALL gds.graph.drop('ukraine');");
+				return result;
+			});
+			System.out.println(nodePropertiesWritten);
+		}
+	}
+	
+	private static void createGraph(){
+		try (Session session = driver.session()) {
+			Object nodePropertiesWritten = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx
+						.run("CALL gds.graph.create('ukraine','SINGLE_NODE','IS_CONNECTED',{\n"
+								+ "    relationshipProperties:['dice','cost']\n"
+								+ "    })\n"
+								+ "YIELD graphName, nodeCount, relationshipCount, createMillis;");
+				return result;
+			});
+			System.out.println(nodePropertiesWritten);
+		}
+	}
+	
+	private static void markNodes(List<Record> nodeNames){
+		for (Record record : nodeNames) {
+			try (Session session = driver.session()) {
+				Object nodes = session.writeTransaction(tx -> {
+					org.neo4j.driver.Result result = tx
+							.run("MATCH (n {name: " + record.get("name") + "})\n"
+									+ "SET n.marked = true\n"
+									+ "RETURN n");
+					return result;
+				});
+			}
+
+		}
+		
+	}
+	
+	private static void showNodes(){
+	
+		try (Session session = driver.session()) {
+			Object nodes = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx
+						.run("MATCH (n) RETURN n.name, n.occur, n.marked LIMIT 10");
+				return result.list();
+			});
+			System.out.println(nodes);
 		}
 	}
 
