@@ -1,3 +1,5 @@
-main/java/graphreduction/ReductionController$RelTypes.class
+main/java/graphreduction/WeaklyConnectedComponents.class
+main/java/graphreduction/Coarsening.class
+main/java/graphreduction/WeaklyConnectedComponents$Cluster.class
 main/java/graphreduction/ReductionController.class
-main/java/graphreduction/ReductionController$1.class
+main/java/graphreduction/Ranking.class

@@ -6,10 +6,10 @@ import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
 
-public class Ranking {
+public class Centrality {
 	private Driver driver;
 
-	public Ranking(Driver driver) {
+	public Centrality(Driver driver) {
 		super();
 		this.driver = driver;
 	}
@@ -17,55 +17,54 @@ public class Ranking {
 	public List<Record> articleRank() {
 
 		try (Session session = this.driver.session()) {
-			List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
+			List<Record> list = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx.run("CALL gds.articleRank.stream('ukraine', {\n"
 						+ "	relationshipWeightProperty: 'cost'\n" 
 						+ "	})\n"
 						+ "	YIELD nodeId, score\n" 
 						+ "	RETURN gds.util.asNode(nodeId).name AS name, score\n"
-						+ "	ORDER BY score DESC, name ASC\n" 
-						+ "	LIMIT 50");
+						+ "	ORDER BY score DESC, name ASC\n");
 				return result.list();
 			});
-			System.out.println(nodePropertiesWritten);
-			return nodePropertiesWritten;
+			System.out.println(list);
+			return list;
 
 		}
 	}
 
-	public List<Record> betweenness() {
+	// Verwenden - unweighted
+	public List<Record> betweenness(String graphName) {
 
 		try (Session session = this.driver.session()) {
-			List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx.run("CALL gds.betweenness.stream('ukraine')\n"
+			List<Record> list = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx.run("CALL gds.betweenness.stream('" + graphName + "')\n"
 						+ "YIELD nodeId, score\n"
 						+ "RETURN gds.util.asNode(nodeId).name AS name, score\n"
-						+ "ORDER BY score DESC\n"
-						+ "LIMIT 50");
+						+ "ORDER BY score DESC\n");
 				return result.list();
 			});
-			System.out.println(nodePropertiesWritten);
-			return nodePropertiesWritten;
+			System.out.println(list);
+			return list;
 
 		}
 	}
 
-	public List<Record> degreeCrentrality() {
+	// Verwenden - weighted
+	public List<Record> degreeCrentrality(String graphName, String weightProperty) {
 
 		try (Session session = this.driver.session()) {
-			List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx.run("CALL gds.degree.stream('ukraine',{\n"
-						+ "    relationshipWeightProperty: 'cost'\n"
+			List<Record> list = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx.run("CALL gds.degree.stream('" + graphName + "',{\n"
+						+ "    relationshipWeightProperty: '" + weightProperty + "'\n"
 						+ "\n"
 						+ "})\n"
 						+ "YIELD nodeId, score\n"
 						+ "RETURN gds.util.asNode(nodeId).name AS name, score\n"
-						+ "ORDER BY score DESC, name ASC\n"
-						+ "LIMIT 50");
+						+ "ORDER BY score DESC, name ASC\n");
 				return result.list();
 			});
-			System.out.println(nodePropertiesWritten);
-			return nodePropertiesWritten;
+			System.out.println(list);
+			return list;
 
 		}
 	}
@@ -73,19 +72,18 @@ public class Ranking {
 	public List<Record> eigenVector() {
 
 		try (Session session = this.driver.session()) {
-			List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
+			List<Record> list = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx.run("CALL gds.eigenvector.stream('ukraine',{\n"
 						+ "    relationshipWeightProperty: 'cost'\n"
 						+ "\n"
 						+ "})\n"
 						+ "YIELD nodeId, score\n"
 						+ "RETURN gds.util.asNode(nodeId).name AS name, score\n"
-						+ "ORDER BY score DESC, name ASC\n"
-						+ "LIMIT 50");
+						+ "ORDER BY score DESC, name ASC\n");
 				return result.list();
 			});
-			System.out.println(nodePropertiesWritten);
-			return nodePropertiesWritten;
+			System.out.println(list);
+			return list;
 
 		}
 	}
@@ -93,15 +91,14 @@ public class Ranking {
 	public List<Record> pageRank() {
 
 		try (Session session = this.driver.session()) {
-			List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
+			List<Record> list = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx.run("CALL gds.pageRank.stream('ukraine', {\n"
 						+ "relationshipWeightProperty: 'cost'}) YIELD nodeId, score\n"
-						+ "RETURN gds.util.asNode(nodeId).name AS name, score ORDER BY score DESC, name ASC\n"
-						+ "LIMIT 50");
+						+ "RETURN gds.util.asNode(nodeId).name AS name, score ORDER BY score DESC, name ASC\n");
 				return result.list();
 			});
-			System.out.println(nodePropertiesWritten);
-			return nodePropertiesWritten;
+			System.out.println(list);
+			return list;
 
 		}
 	}

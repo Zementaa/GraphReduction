@@ -46,7 +46,7 @@ import org.neo4j.graphdb.Transaction;
  * 
  * Vorgehen
  * Erstellen des Kookkurrenzgraphen
- * Auswahl der wichtigsten Knoten (Ranking-Klasse)
+ * Auswahl der wichtigsten Knoten (Centrality-Klasse)
  * Markierung der wichtigsten Knoten von Hand (markNodes()-Methode)
  * 
  */
@@ -54,11 +54,19 @@ public class ReductionController implements AutoCloseable {
 
 	private static Driver driver;
 	
-	private static Ranking ranking;
+	private static Centrality centrality;
+	
+	private static PathFinding pathFinding;
+	
+	private static CommunityDetection communityDetection;
+	
+	private static String graphName;
 
 	public ReductionController(String uri, String user, String password) {
 		driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
-		ranking = new Ranking(driver);
+		centrality = new Centrality(driver);
+		pathFinding = new PathFinding(driver);
+		communityDetection = new CommunityDetection(driver);
 	}
 
 	@Override
@@ -73,6 +81,8 @@ public class ReductionController implements AutoCloseable {
 	public static void main(String... args) throws Exception {
 
 		boolean isAlive = isSocketAlive("localhost", 7687);
+		
+		graphName = "ukraine";
 
 		System.out.println(isAlive);
 		if (!isAlive) {
@@ -118,13 +128,22 @@ public class ReductionController implements AutoCloseable {
 
 			alg = "";
 			
-			//createGraph();
+			createGraph(graphName);
 			
-			List<Record> rankingList = ranking.articleRank();
+			//List<Record> rankingList = centrality.articleRank();
 			
-			markNodes(rankingList);
+			//markNodes(rankingList);
 			
-			showNodes();
+			showNodes(graphName);
+			
+			//centrality.betweenness(graphName);
+			//centrality.degreeCrentrality(graphName, "cost");
+			
+			//pathFinding.randomWalk(graphName);
+			
+			communityDetection.louvain(graphName);
+			communityDetection.labelPropagation(graphName);
+			communityDetection.modularityOptimization(graphName);
 
 			switch (alg) {
 			case "wcc":
@@ -158,18 +177,33 @@ public class ReductionController implements AutoCloseable {
 		}
 	}
 	
-	private static void createGraph(){
+	private static void createGraph(String graphName){
+		
+		String exists;
+		
 		try (Session session = driver.session()) {
-			Object nodePropertiesWritten = session.writeTransaction(tx -> {
+			exists = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx
-						.run("CALL gds.graph.create('ukraine','SINGLE_NODE','IS_CONNECTED',{\n"
-								+ "    relationshipProperties:['dice','cost']\n"
-								+ "    })\n"
-								+ "YIELD graphName, nodeCount, relationshipCount, createMillis;");
-				return result;
+						.run("RETURN gds.graph.exists('" + graphName + "')");
+				return result.single().get(0).toString();
 			});
-			System.out.println(nodePropertiesWritten);
+			System.out.println(exists);
 		}
+		
+		if(exists!="TRUE") {
+			try (Session session = driver.session()) {
+				Object nodePropertiesWritten = session.writeTransaction(tx -> {
+					org.neo4j.driver.Result result = tx
+							.run("CALL gds.graph.create('" + graphName + "','SINGLE_NODE','IS_CONNECTED',{\n"
+									+ "    relationshipProperties:['dice','cost']\n"
+									+ "    })\n"
+									+ "YIELD graphName, nodeCount, relationshipCount, createMillis;");
+					return result;
+				});
+				System.out.println(nodePropertiesWritten);
+			}
+		}
+		
 	}
 	
 	private static void markNodes(List<Record> nodeNames){
@@ -188,7 +222,7 @@ public class ReductionController implements AutoCloseable {
 		
 	}
 	
-	private static void showNodes(){
+	private static void showNodes(String graphName){
 	
 		try (Session session = driver.session()) {
 			Object nodes = session.writeTransaction(tx -> {
