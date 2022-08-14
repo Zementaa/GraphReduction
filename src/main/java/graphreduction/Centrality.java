@@ -55,8 +55,8 @@ public class Centrality {
 		try (Session session = this.driver.session()) {
 			List<Record> list = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx.run("CALL gds.degree.stream('" + graphName + "',{\n"
-						+ "    relationshipWeightProperty: '" + weightProperty + "'\n"
-						+ "\n"
+						+ "    relationshipWeightProperty: '" + weightProperty + "',\n"
+						+ "    orientation: 'UNDIRECTED'\n"
 						+ "})\n"
 						+ "YIELD nodeId, score\n"
 						+ "RETURN gds.util.asNode(nodeId).name AS name, score\n"

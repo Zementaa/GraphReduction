@@ -19,10 +19,10 @@ private Driver driver;
 
 		try (Session session = this.driver.session()) {
 			List<Record> list = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.stream('ukraine', { relationshipWeightProperty: 'cost' })\n"
+				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.stream('ukraine', { relationshipWeightProperty: 'cost', includeIntermediateCommunities: true })\n"
 						+ "YIELD nodeId, communityId, intermediateCommunityIds\n"
 						+ "RETURN gds.util.asNode(nodeId).name AS name, communityId, intermediateCommunityIds\n"
-						+ "ORDER BY name ASC");
+						+ "ORDER BY communityId DESC, name");
 				return result.list();
 			});
 			System.out.println(list);
@@ -36,9 +36,9 @@ private Driver driver;
 		try (Session session = this.driver.session()) {
 			List<Record> list = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx.run("CALL gds.labelPropagation.stream('" + graphName + "', { relationshipWeightProperty: 'cost' })\n"
-						+ "YIELD nodeId, communityId AS Community\n"
-						+ "RETURN gds.util.asNode(nodeId).name AS Name, Community\n"
-						+ "ORDER BY Community, Name");
+						+ "YIELD nodeId, communityId\n"
+						+ "RETURN gds.util.asNode(nodeId).name AS name, communityId\n"
+						+ "ORDER BY communityId DESC, name");
 				return result.list();
 			});
 			System.out.println(list);
@@ -54,7 +54,7 @@ private Driver driver;
 				org.neo4j.driver.Result result = tx.run("CALL gds.beta.modularityOptimization.stream('ukraine', { relationshipWeightProperty: 'cost' })\n"
 						+ "YIELD nodeId, communityId\n"
 						+ "RETURN gds.util.asNode(nodeId).name AS name, communityId\n"
-						+ "ORDER BY name");
+						+ "ORDER BY communityId DESC, name");
 				return result.list();
 			});
 			System.out.println(list);

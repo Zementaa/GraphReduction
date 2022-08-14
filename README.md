@@ -2,13 +2,11 @@
 
 # Plugins
 - neo4j graph data science 1.8.3
-- neosemantics 4.4.0.1
-- apoc 3.5.0.19
 
-# Configuring neo4j to use RDF data
+## pom.xml - dependencies
 
-- [Configure](https://neo4j.com/labs/neosemantics/4.0/config/)
-- [Import RDF data](https://neo4j.com/labs/neosemantics/4.0/import/)
+# Configuring neo4j
+
 - neo4j.conf
 
 ```bash
@@ -17,9 +15,9 @@ dbms.security.procedures.allowlist=apoc.coll.*,apoc.load.*,gds.*
 ```
 
 # Vorgehen
- * Erstellen des Kookkurrenzgraphen
- * Auswahl der wichtigsten Knoten (Ranking-Klasse)
- * Markierung der wichtigsten Knoten von Hand (markNodes()-Methode)
+- Erstellen des Kookkurrenzgraphen (NLP-Toolbox)
+- Auswahl der wichtigsten Knoten (von Hand)
+- Markierung der wichtigsten Knoten (markNodes()-Methode)
 
 Crawler für News:
 https://github.com/fhamborg/news-please
@@ -31,7 +29,11 @@ https://www.standard.co.uk/archive
 ## Centrality
 Centrality algorithms are used to determine the importance of distinct nodes in a network.
 - Betweenness
+	- These: Alle Knoten über Score von 500
+	- Untere 10 Prozent (Score) ausschließen, um mindestens 80 % der Begriffe abzudecken
+	- oder top 15 % Prozent (Anzahl Knoten)
 - Degree Centrality
+	- Undirected, über Score von 100
 
 ## Community Detection
 Community detection algorithms are used to evaluate how groups of nodes are clustered or partitioned, as well as their tendency to strengthen or break apart.

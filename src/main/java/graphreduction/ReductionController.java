@@ -1,38 +1,26 @@
 package main.java.graphreduction;
 
-import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
-import static org.neo4j.driver.Values.parameters;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.awt.Image;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
-import java.net.SocketImpl;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 
-import org.neo4j.dbms.api.DatabaseManagementService;
-import org.neo4j.dbms.api.DatabaseManagementServiceBuilder;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
-import org.neo4j.driver.QueryRunner;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
-import org.neo4j.driver.TransactionWork;
-import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.graphdb.Result;
-import org.neo4j.graphdb.Transaction;
 
 /**
  * 
@@ -60,7 +48,10 @@ public class ReductionController implements AutoCloseable {
 	
 	private static CommunityDetection communityDetection;
 	
-	private static String graphName;
+	private static final String GRAPH_NAME = "ukraine";
+	
+
+	private static String alg;
 
 	public ReductionController(String uri, String user, String password) {
 		driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
@@ -74,95 +65,92 @@ public class ReductionController implements AutoCloseable {
 		driver.close();
 	}
 
-	static String alg = "";
-
-	private static long pid;
-
-	public static void main(String... args) throws Exception {
+	public static void main(String[] args) throws Exception {
 
 		boolean isAlive = isSocketAlive("localhost", 7687);
-		
-		graphName = "ukraine";
 
-		System.out.println(isAlive);
+		System.out.println("Neo4j Console wurde gestartet: " + isAlive);
 		if (!isAlive) {
-
 			System.out.println("Neo4j console muss zunächst gestartet werden.");
-			Process p;
-			try {
-
-				Runtime rt = Runtime.getRuntime();
-				p = rt.exec("/Users/kamir/Desktop/master/neo4j-community-4.4.4/bin/neo4j console");
-				pid = p.pid();
-
-				BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-				String line;
-				while ((line = reader.readLine()) != null) {
-					System.out.println(line);
-				}
-
-				p.waitFor();
-
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} finally {
-				/*
-				 * try (ReductionController controller = new
-				 * ReductionController("bolt://localhost:7687", "neo4j", "password")) {
-				 * controller.printResult("hello, world"); }
-				 */
-			}
+			return;
 		}
 		try (ReductionController controller = new ReductionController("bolt://localhost:7687", "neo4j", "password")) {
 
+			/* Algorithms overview
+			*
+			* Preprocessing
+			* 	wcc - Weakly Connnected Components
+			*
+			* Centrality
+			* 	between - Betweenness
+			* 	degree - Degree Centrality
+			* 
+			* Community Detection
+			* 	louvain - Louvain Algorithmus
+			* 	labelP - Label Propagation
+			* 	modularity - Modularity Optimization
+			* 	
+			* Path Finding
+			* 	randomW - Random Walker
+			*/
+			
+			// Preprocessing
+			// Find nodes that are not connected to main graph and delete those
+			WeaklyConnectedComponents wcc = new WeaklyConnectedComponents(driver);
+			//wcc.useWeaklyConnectedComponentsAlgorithm();
+			
+			// create graph if not exists
+			createGraph(GRAPH_NAME);
+			
+			// load to be marked node names
+			List<String> nodes = openList();
+			
+			// mark all interesting nodes
+			markNodes(nodes);
+			
+			//showNodes(graphName);
+			
+			List<Record> records = new ArrayList<Record>();
+			
 			// Set algorithm
-			//
-			// wcc - Weakly Connected Components Algorithm
-			// coarse - Coarsening / Louvain Algorithmus
-			// cluster - Clustering
-			// kron - Kron Reduction
-
-			alg = "";
-			
-			createGraph(graphName);
-			
-			//List<Record> rankingList = centrality.articleRank();
-			
-			//markNodes(rankingList);
-			
-			showNodes(graphName);
-			
-			//centrality.betweenness(graphName);
-			//centrality.degreeCrentrality(graphName, "cost");
-			
-			//pathFinding.randomWalk(graphName);
-			
-			communityDetection.louvain(graphName);
-			communityDetection.labelPropagation(graphName);
-			communityDetection.modularityOptimization(graphName);
+			alg = "maus";
+			String info = "";
 
 			switch (alg) {
-			case "wcc":
-				WeaklyConnectedComponents wcc = new WeaklyConnectedComponents(driver);
-				wcc.useWeaklyConnectedComponentsAlgorithm();
-				break;
-			case "coarse":
-
-				break;
-			case "cluster":
-
-				break;
-			case "kron":
-
-				break;
-
-			default:
-				break;
+				case "between":
+					records = centrality.betweenness(GRAPH_NAME);
+					info = "centrality";
+					break;
+				case "degree":
+					records = centrality.degreeCrentrality(GRAPH_NAME, "cost");
+					info = "centrality";
+					break;
+				case "louvain":
+					records = communityDetection.louvain(GRAPH_NAME);
+					info = "community";
+					break;
+				case "labelP":
+					records = communityDetection.labelPropagation(GRAPH_NAME);
+					info = "community";
+					break;
+				case "modularity":
+					records = communityDetection.modularityOptimization(GRAPH_NAME);
+					info = "community";
+					break;
+				case "randomW":
+					records = pathFinding.randomWalk(GRAPH_NAME);
+					info = "path";
+					break;
+				case "maus":
+					records = centrality.betweenness(GRAPH_NAME);
+					info = "centrality";
+					break;
+	
+				default:
+					break;
 			}
+			
+			exportToCSV(records, alg, info);
 		}
 	}
 	
@@ -187,7 +175,7 @@ public class ReductionController implements AutoCloseable {
 						.run("RETURN gds.graph.exists('" + graphName + "')");
 				return result.single().get(0).toString();
 			});
-			System.out.println(exists);
+			System.out.println("Graph 'ukraine' existiert bereits? " + exists);
 		}
 		
 		if(exists!="TRUE") {
@@ -206,17 +194,40 @@ public class ReductionController implements AutoCloseable {
 		
 	}
 	
-	private static void markNodes(List<Record> nodeNames){
-		for (Record record : nodeNames) {
+	private static List<String> openList(){
+		List<String> nodes = new ArrayList<>();
+		try (BufferedReader br = new BufferedReader(new FileReader("input/marked_nodes.csv"))) {
+		    String line;
+		    while ((line = br.readLine()) != null) {
+		        String value = line.split(",")[0];
+		        nodes.add(value);
+		    }
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return nodes;
+	}
+	
+	private static void markNodes(List<String> nodeNames){
+		for (String record : nodeNames) {
 			try (Session session = driver.session()) {
-				Object nodes = session.writeTransaction(tx -> {
+				Object node = session.writeTransaction(tx -> {
 					org.neo4j.driver.Result result = tx
-							.run("MATCH (n {name: " + record.get("name") + "})\n"
+							.run("MATCH (n {name: '" + record + "'})\n"
 									+ "SET n.marked = true\n"
-									+ "RETURN n");
-					return result;
+									+ "RETURN n.name");
+					return result.single().get(0);
+					
 				});
+				//System.out.println(node);
+				
 			}
+			
 
 		}
 		
@@ -227,11 +238,47 @@ public class ReductionController implements AutoCloseable {
 		try (Session session = driver.session()) {
 			Object nodes = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx
-						.run("MATCH (n) RETURN n.name, n.occur, n.marked LIMIT 10");
+						.run("MATCH (n) RETURN n.name, n.occur, n.marked LIMIT 50");
 				return result.list();
 			});
 			System.out.println(nodes);
 		}
+	}
+	
+	private static void exportToCSV(List<Record> records, String fileName, String info){
+		File csvOutputFile = new File("output/" + fileName + ".csv");
+	    try (PrintWriter pw = new PrintWriter(csvOutputFile)) {
+	    	
+	    	switch (info) {
+			case "centrality":
+		    	pw.println("name;score");
+		        records.stream().forEach(record -> {
+		        	pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ","));
+		        });
+				break;
+			case "community":
+		    	pw.println("name;communityId");		
+		        records.stream().forEach(record -> {
+		        	pw.println( record.get("name") + ";" + record.get("communityId"));
+		        });
+				break;
+			case "path":
+		    	pw.println("nodeIds;pages");
+		        records.stream().forEach(record -> {
+		        	pw.println( record.get("nodeIds") + ";" + record.get("pages"));
+		        });
+				break;
+
+			default:
+				break;
+			}
+
+	    }
+	    catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	    assertTrue(csvOutputFile.exists());
 	}
 
 	/**
@@ -270,18 +317,6 @@ public class ReductionController implements AutoCloseable {
 
 		}
 		return isAlive;
-	}
-	
-	// ------------------------------------------------------------------------------
-	
-	private static void killProcess(long pid) {
-		Runtime rt = Runtime.getRuntime();
-		try {
-			rt.exec("kill " + pid);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
 	}
 
 }
