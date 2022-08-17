@@ -59,6 +59,34 @@ private Driver driver;
 			});
 			System.out.println(list);
 			return list;
+		}
+
+	}
+	
+	public void modularityOptimizationWrite(String graphName) {
+
+		try (Session session = this.driver.session()) {
+			List<Record> list = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx.run("CALL gds.beta.modularityOptimization.write('ukraine', { relationshipWeightProperty: 'cost', writeProperty: 'communityId' })\n"
+						+ "YIELD nodes, communityCount, ranIterations, didConverge\n");
+				return result.list();
+			});
+			System.out.println(list);
+
+		}
+
+	}
+	
+	public List<Record> getIds(String graphName) {
+
+		try (Session session = this.driver.session()) {
+			List<Record> list = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx.run("MATCH (n)\n"
+						+ "WITH DISTINCT n.communityId AS communityId RETURN communityId");
+				return result.list();
+			});
+			System.out.println(list);
+			return list;
 
 		}
 	}
