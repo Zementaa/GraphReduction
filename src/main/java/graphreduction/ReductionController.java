@@ -45,8 +45,6 @@ public class ReductionController implements AutoCloseable {
 	
 	private static Centrality centrality;
 	
-	private static PathFinding pathFinding;
-	
 	private static CommunityDetection communityDetection;
 	
 	private static final String GRAPH_NAME = "ukraine";
@@ -55,7 +53,6 @@ public class ReductionController implements AutoCloseable {
 	public ReductionController(String uri, String user, String password) {
 		driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
 		centrality = new Centrality(driver);
-		pathFinding = new PathFinding(driver);
 		communityDetection = new CommunityDetection(driver);
 	}
 
@@ -98,8 +95,7 @@ public class ReductionController implements AutoCloseable {
 			WeaklyConnectedComponents wcc = new WeaklyConnectedComponents(driver);
 			//wcc.useWeaklyConnectedComponentsAlgorithm();
 			
-			// create graph if not exists
-			createGraph(GRAPH_NAME);
+			init();
 			
 			// load to be marked node names
 			List<String> nodes = openList();
@@ -112,11 +108,21 @@ public class ReductionController implements AutoCloseable {
 			
 			// Set algorithm
 			String alg = "modularity";
-			String mode = "stream";  // stream, write, stats, mutate
+			String mode = "write";  // stream, write, stats, mutate
 			
 			useAlgorithm(alg, mode);	
 			
 		}
+	}
+	
+	private static void init() {
+		
+		List<Record> nodeLabels = getAllLabels();
+		
+		deleteAllLabels(nodeLabels);
+		
+		// create graph if not exists
+		createGraph(GRAPH_NAME);
 	}
 	
 	private static void useAlgorithm(String alg, String mode){
@@ -132,24 +138,65 @@ public class ReductionController implements AutoCloseable {
 				info = "centrality";
 				break;
 			case "louvain":
-				records = communityDetection.louvain(GRAPH_NAME);
-				info = "community";
-				break;
-			case "labelP":
-				records = communityDetection.labelPropagation(GRAPH_NAME);
-				info = "community";
-				break;
-			case "modularity":
+				records = communityDetection.louvainStream(GRAPH_NAME);
 				
 				if(mode=="stream") {
-					communityDetection.modularityOptimization(GRAPH_NAME);
+					communityDetection.modularityOptimizationStream(GRAPH_NAME);
 				}
 				if(mode=="write") {
 					communityDetection.modularityOptimizationWrite(GRAPH_NAME);
 				}
 				records = communityDetection.getIds(GRAPH_NAME);
 				
-				//info = "community";
+				List<String> louvainCommunities = new ArrayList<String>();
+				//communities.add("SINGLE_NODE");
+				
+				records.forEach(record -> {
+					
+					List<Record> communityNodes = getNodesByCommunityId(record.get("communityId").asInt());
+					communityNodes.forEach(node -> {
+	
+						setNodeLabel(node.get(0).asString(), node.get(3).asInt());
+						if(!louvainCommunities.contains("Community" + node.get(3).asInt())) {
+							louvainCommunities.add("Community" + node.get(3).asInt());
+						}
+						
+					});
+				});
+				
+				recreateGraph(louvainCommunities);
+				
+				System.out.println("Anzahl Communities: " + louvainCommunities.size());
+				
+				List<Record> louvainList = new ArrayList<Record>();
+				
+				float dec = 0.0f;
+				
+				louvainCommunities.forEach(com -> {
+					louvainList.addAll(centrality.degreeCrentralityWithNodeLabel(GRAPH_NAME, "cost", com, Integer.parseInt(com.replaceAll("\\D+",""))));
+					getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
+				});
+				
+				
+				
+				records = louvainList;
+				info = "centrality";
+				alg = alg + "-degree";
+				
+				break;
+			case "labelP":
+				records = communityDetection.labelPropagationStream(GRAPH_NAME);
+				info = "community";
+				break;
+			case "modularity":
+				
+				if(mode=="stream") {
+					communityDetection.modularityOptimizationStream(GRAPH_NAME);
+				}
+				if(mode=="write") {
+					communityDetection.modularityOptimizationWrite(GRAPH_NAME);
+				}
+				records = communityDetection.getIds(GRAPH_NAME);
 				
 				List<String> communities = new ArrayList<String>();
 				//communities.add("SINGLE_NODE");
@@ -172,18 +219,14 @@ public class ReductionController implements AutoCloseable {
 				List<Record> list = new ArrayList<Record>();
 				
 				communities.forEach(com -> {
-					list.addAll(centrality.betweennessWithNodeLabel(GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))));
+					//list.addAll(centrality.betweennessWithNodeLabel(GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))));
+					list.addAll(centrality.degreeCrentralityWithNodeLabel(GRAPH_NAME, "cost", com, Integer.parseInt(com.replaceAll("\\D+",""))));
 				});
-				//exportToCSV(list, "modularity-between", "centrality");
 				
 				records = list;
 				info = "centrality";
-				alg = "modularity-between";
+				alg = alg + "-degree";
 				
-				break;
-			case "randomW":
-				records = pathFinding.randomWalk(GRAPH_NAME);
-				info = "path";
 				break;
 			case "maus":
 				records = centrality.betweenness(GRAPH_NAME);
@@ -194,6 +237,57 @@ public class ReductionController implements AutoCloseable {
 				break;
 		}
 		exportToCSV(records, alg, info);
+	}
+	
+	private static List<Record> getAllLabels() {
+		try (Session session = driver.session()) {
+			List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx
+						.run("CALL db.labels()");
+				return result.list();
+			});
+			System.out.println(nodePropertiesWritten);
+			return nodePropertiesWritten;
+		}
+	}
+	
+	private static void getDiceCoefficient(int communityId){
+		try (Session session = driver.session()) {
+			List<Record> relationships = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx
+						.run("MATCH (n {communityId: " + communityId + "})-[r:IS_CONNECTED]->(c)\n"
+								+ "RETURN r.dice as dice");
+				return result.list();
+			});
+						
+			double summe = 0.0f;
+			
+			for(int i =0; i< relationships.size(); i++) {
+				summe += relationships.get(i).get("dice").asDouble();
+			}
+			
+			System.out.println(summe);			
+			//return nodePropertiesWritten.get("dice").asFloat();
+		}
+	}
+	
+	private static void deleteAllLabels(List<Record> nodeLabels) {
+		nodeLabels.forEach(label -> {
+			String str = label.get("label").asString();
+			if(str != "SINGLE_NODE") {
+				try (Session session = driver.session()) {
+					List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
+						org.neo4j.driver.Result result = tx
+								.run("MATCH (n)\n"
+										+ "REMOVE n:"+ str + "\n"
+										+ "RETURN n.name, labels(n)");
+						return result.list();
+					});
+					System.out.println(nodePropertiesWritten);
+				}
+			}
+		});
+		
 	}
 	
 	private static void dropGraph(String graphName){
@@ -211,7 +305,7 @@ public class ReductionController implements AutoCloseable {
 		
 		String exists;
 		
-		dropGraph(GRAPH_NAME);
+		//dropGraph(GRAPH_NAME);
 		
 		try (Session session = driver.session()) {
 			exists = session.writeTransaction(tx -> {
@@ -353,9 +447,9 @@ public class ReductionController implements AutoCloseable {
 	    	
 	    	switch (info) {
 			case "centrality":
-		    	pw.println("name;score;marked");
+		    	pw.println("name;score;marked; communityId");
 		        records.stream().forEach(record -> {
-		        	pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ",") + ";" + record.get("marked"));
+		        	pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ",") + ";" + record.get("marked") + ";" + record.get("communityId"));
 		        });
 				break;
 			case "community":

@@ -41,6 +41,7 @@ Community detection algorithms are used to evaluate how groups of nodes are clus
 - Label Propagation
 - Modularity Optimization (beta)
 
-## Path finding
-Path finding algorithms find the path between two or more nodes or evaluate the availability and quality of paths.
-- Ramdom Walker (beta)
+
+Dice = 2 * a und b kommen zusammen vor / (a kommt vor + b kommt vor)
+
+Communityalgorithmen vergeben die communities nicht unbedingt auf Basis dessen, dass alle Knoten innerhalb einer Community verbunden sind.

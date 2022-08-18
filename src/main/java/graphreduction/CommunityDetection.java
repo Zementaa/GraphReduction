@@ -15,13 +15,13 @@ private Driver driver;
 		this.driver = driver;
 	}
 	
-	public List<Record> louvain(String graphName) {
+	public List<Record> louvainStream(String graphName) {
 
 		try (Session session = this.driver.session()) {
 			List<Record> list = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.stream('ukraine', { relationshipWeightProperty: 'cost', includeIntermediateCommunities: true })\n"
+				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.stream('ukraine', { relationshipWeightProperty: 'cost' })\n"
 						+ "YIELD nodeId, communityId, intermediateCommunityIds\n"
-						+ "RETURN gds.util.asNode(nodeId).name AS name, communityId, intermediateCommunityIds\n"
+						+ "RETURN gds.util.asNode(nodeId).name AS name, communityId\n"
 						+ "ORDER BY communityId DESC, name");
 				return result.list();
 			});
@@ -31,7 +31,20 @@ private Driver driver;
 		}
 	}
 	
-	public List<Record> labelPropagation(String graphName) {
+	public void louvainWrite(String graphName) {
+
+		try (Session session = this.driver.session()) {
+			List<Record> list = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.write('ukraine', { relationshipWeightProperty: 'cost', writeProperty: 'communityId' })\n"
+						+ "YIELD communityCount, modularity, modularities");
+				return result.list();
+			});
+			System.out.println(list);
+
+		}
+	}
+	
+	public List<Record> labelPropagationStream(String graphName) {
 
 		try (Session session = this.driver.session()) {
 			List<Record> list = session.writeTransaction(tx -> {
@@ -47,7 +60,19 @@ private Driver driver;
 		}
 	}
 	
-	public List<Record> modularityOptimization(String graphName) {
+	public void labelPropagationWrite(String graphName) {
+
+		try (Session session = this.driver.session()) {
+			List<Record> list = session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx.run("CALL gds.labelPropagation.write('ukraine', { relationshipWeightProperty: 'cost', writeProperty: 'communityId' })\n"
+						+ " YIELD communityCount, modularity, modularities");
+				return result.list();
+			});
+			System.out.println(list);
+		}
+	}
+	
+	public List<Record> modularityOptimizationStream(String graphName) {
 
 		try (Session session = this.driver.session()) {
 			List<Record> list = session.writeTransaction(tx -> {
