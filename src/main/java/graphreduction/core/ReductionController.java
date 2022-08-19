@@ -1,4 +1,4 @@
-package main.java.graphreduction;
+package main.java.graphreduction.core;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,6 +23,15 @@ import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.Values;
 
+import main.java.graphreduction.centrality.Betweenness;
+import main.java.graphreduction.centrality.CentralityImpl;
+import main.java.graphreduction.centrality.Degree;
+import main.java.graphreduction.communitydetection.CommunityDetectionImpl;
+import main.java.graphreduction.communitydetection.LabelPropagation;
+import main.java.graphreduction.communitydetection.Louvain;
+import main.java.graphreduction.communitydetection.ModularityOptimization;
+import main.java.graphreduction.communitydetection.WeaklyConnectedComponents;
+
 /**
  * 
  * 
@@ -43,17 +52,12 @@ public class ReductionController implements AutoCloseable {
 
 	private static Driver driver;
 	
-	private static Centrality centrality;
-	
-	private static CommunityDetection communityDetection;
-	
 	private static final String GRAPH_NAME = "ukraine";
 
 
 	public ReductionController(String uri, String user, String password) {
 		driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
-		centrality = new Centrality(driver);
-		communityDetection = new CommunityDetection(driver);
+
 	}
 
 	@Override
@@ -78,7 +82,7 @@ public class ReductionController implements AutoCloseable {
 			* 	wcc - Weakly Connnected Components
 			*
 			* Centrality
-			* 	between - Betweenness
+			* 	betweenness - Betweenness Centrality
 			* 	degree - Degree Centrality
 			* 
 			* Community Detection
@@ -86,8 +90,6 @@ public class ReductionController implements AutoCloseable {
 			* 	labelP - Label Propagation
 			* 	modularity - Modularity Optimization
 			* 	
-			* Path Finding
-			* 	randomW - Random Walker
 			*/
 			
 			// Preprocessing
@@ -103,14 +105,14 @@ public class ReductionController implements AutoCloseable {
 			// mark all interesting nodes
 			markNodes(nodes);
 			
-			//showNodes(graphName);
-			
-			
-			// Set algorithm
-			String alg = "modularity";
+			// Set algorithm and mode
+			String alg = "louvain";
 			String mode = "write";  // stream, write, stats, mutate
 			
-			useAlgorithm(alg, mode);	
+			// If community algorithm is used, set centrality algorithm here
+			String centralityAlg = "degree"; //betweenness, degree
+			
+			useAlgorithm(alg, mode, centralityAlg);	
 			
 		}
 	}
@@ -125,118 +127,106 @@ public class ReductionController implements AutoCloseable {
 		createGraph(GRAPH_NAME);
 	}
 	
-	private static void useAlgorithm(String alg, String mode){
+	private static void useAlgorithm(String alg, String mode, String centralityAlg){
 		List<Record> records = new ArrayList<Record>();
-		String info = "";
+
 		switch (alg) {
-			case "between":
-				records = centrality.betweenness(GRAPH_NAME);
-				info = "centrality";
+			case "betweenness":
+				Betweenness betweenness = new Betweenness(driver);
+				records = betweenness.stream(GRAPH_NAME);
+				exportToCSV(records, alg);
 				break;
+				
 			case "degree":
-				records = centrality.degreeCrentrality(GRAPH_NAME, "cost");
-				info = "centrality";
+				Degree degree = new Degree(driver);
+				records = degree.stream(GRAPH_NAME);
+				exportToCSV(records, alg);
 				break;
+				
 			case "louvain":
-				records = communityDetection.louvainStream(GRAPH_NAME);
-				
-				if(mode=="stream") {
-					communityDetection.modularityOptimizationStream(GRAPH_NAME);
-				}
-				if(mode=="write") {
-					communityDetection.modularityOptimizationWrite(GRAPH_NAME);
-				}
-				records = communityDetection.getIds(GRAPH_NAME);
-				
-				List<String> louvainCommunities = new ArrayList<String>();
-				//communities.add("SINGLE_NODE");
-				
-				records.forEach(record -> {
-					
-					List<Record> communityNodes = getNodesByCommunityId(record.get("communityId").asInt());
-					communityNodes.forEach(node -> {
-	
-						setNodeLabel(node.get(0).asString(), node.get(3).asInt());
-						if(!louvainCommunities.contains("Community" + node.get(3).asInt())) {
-							louvainCommunities.add("Community" + node.get(3).asInt());
-						}
-						
-					});
-				});
-				
-				recreateGraph(louvainCommunities);
-				
-				System.out.println("Anzahl Communities: " + louvainCommunities.size());
-				
-				List<Record> louvainList = new ArrayList<Record>();
-				
-				float dec = 0.0f;
-				
-				louvainCommunities.forEach(com -> {
-					louvainList.addAll(centrality.degreeCrentralityWithNodeLabel(GRAPH_NAME, "cost", com, Integer.parseInt(com.replaceAll("\\D+",""))));
-					getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
-				});
-				
-				
-				
-				records = louvainList;
-				info = "centrality";
-				alg = alg + "-degree";
-				
+				Louvain louvain = new Louvain(driver);
+				executeCentralityAlgorithm(mode, louvain, alg, centralityAlg);				
 				break;
+				
 			case "labelP":
-				records = communityDetection.labelPropagationStream(GRAPH_NAME);
-				info = "community";
+				LabelPropagation labelP = new LabelPropagation(driver);
+				executeCentralityAlgorithm(mode, labelP, alg, centralityAlg);
 				break;
+				
 			case "modularity":
-				
-				if(mode=="stream") {
-					communityDetection.modularityOptimizationStream(GRAPH_NAME);
-				}
-				if(mode=="write") {
-					communityDetection.modularityOptimizationWrite(GRAPH_NAME);
-				}
-				records = communityDetection.getIds(GRAPH_NAME);
-				
-				List<String> communities = new ArrayList<String>();
-				//communities.add("SINGLE_NODE");
-				
-				records.forEach(record -> {
-					
-					List<Record> communityNodes = getNodesByCommunityId(record.get("communityId").asInt());
-					communityNodes.forEach(node -> {
-	
-						setNodeLabel(node.get(0).asString(), node.get(3).asInt());
-						if(!communities.contains("Community" + node.get(3).asInt())) {
-							communities.add("Community" + node.get(3).asInt());
-						}
-						
-					});
-				});
-				
-				recreateGraph(communities);
-				
-				List<Record> list = new ArrayList<Record>();
-				
-				communities.forEach(com -> {
-					//list.addAll(centrality.betweennessWithNodeLabel(GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))));
-					list.addAll(centrality.degreeCrentralityWithNodeLabel(GRAPH_NAME, "cost", com, Integer.parseInt(com.replaceAll("\\D+",""))));
-				});
-				
-				records = list;
-				info = "centrality";
-				alg = alg + "-degree";
-				
-				break;
-			case "maus":
-				records = centrality.betweenness(GRAPH_NAME);
-				info = "centrality";
+				ModularityOptimization modularity = new ModularityOptimization(driver);
+				executeCentralityAlgorithm(mode, modularity, alg, centralityAlg);
 				break;
 	
 			default:
 				break;
 		}
-		exportToCSV(records, alg, info);
+	}
+	
+	public static void executeCentralityAlgorithm(String mode, CommunityDetectionImpl communityDetection, String communityAlg, String centralityAlg){
+		
+		List<Record> records = new ArrayList<Record>();
+		
+		if(mode=="stream") {	
+			communityDetection.stream(GRAPH_NAME);
+		}
+		if(mode=="write") {
+			communityDetection.stream(GRAPH_NAME);
+		}
+		records = communityDetection.getIds(GRAPH_NAME);
+		
+		List<String> louvainCommunities = new ArrayList<String>();
+		//communities.add("SINGLE_NODE");
+		
+		records.forEach(record -> {
+			
+			List<Record> communityNodes = getNodesByCommunityId(record.get("communityId").asInt());
+			communityNodes.forEach(node -> {
+
+				setNodeLabel(node.get(0).asString(), node.get(3).asInt());
+				if(!louvainCommunities.contains("Community" + node.get(3).asInt())) {
+					louvainCommunities.add("Community" + node.get(3).asInt());
+				}
+				
+			});
+		});
+		
+		recreateGraph(louvainCommunities);
+		
+		System.out.println("Anzahl Communities: " + louvainCommunities.size());
+		
+		List<Record> list = new ArrayList<Record>();
+		
+		//float dec = 0.0f;
+		System.out.println(centralityAlg);
+		
+		switch (centralityAlg) {
+			case "betweenness":
+				Betweenness betweenness = new Betweenness(driver);
+				
+				louvainCommunities.forEach(com -> {
+					list.addAll(betweenness.streamWithNodeLabel(GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))));
+					// getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
+				});
+				break;
+				
+			case "degree":
+				Degree degree = new Degree(driver);
+				
+				louvainCommunities.forEach(com -> {
+					list.addAll(degree.streamWithNodeLabel(GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))));
+					
+				});
+				break;
+	
+			default:
+				return;
+				
+		}
+
+		System.out.println("Export nach csv.");
+		exportToCSV(list, communityAlg + "-" + centralityAlg);
+		
 	}
 	
 	private static List<Record> getAllLabels() {
@@ -441,34 +431,14 @@ public class ReductionController implements AutoCloseable {
 		return nodes;
 	}
 	
-	private static void exportToCSV(List<Record> records, String fileName, String info){
+	private static void exportToCSV(List<Record> records, String fileName){
 		File csvOutputFile = new File("output/" + fileName + ".csv");
 	    try (PrintWriter pw = new PrintWriter(csvOutputFile)) {
-	    	
-	    	switch (info) {
-			case "centrality":
-		    	pw.println("name;score;marked; communityId");
-		        records.stream().forEach(record -> {
-		        	pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ",") + ";" + record.get("marked") + ";" + record.get("communityId"));
-		        });
-				break;
-			case "community":
-		    	pw.println("name;communityId");		
-		        records.stream().forEach(record -> {
-		        	pw.println( record.get("name") + ";" + record.get("communityId"));
-		        });
-				break;
-			case "path":
-		    	pw.println("nodeIds;pages");
-		        records.stream().forEach(record -> {
-		        	pw.println( record.get("nodeIds") + ";" + record.get("pages"));
-		        });
-				break;
 
-			default:
-				break;
-			}
-
+	    	pw.println("name;score;marked;communityId;occur");
+	        records.stream().forEach(record -> {
+	        	pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ",") + ";" + record.get("marked") + ";" + record.get("communityId") + ";" + record.get("occur"));
+	        });
 	    }
 	    catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block

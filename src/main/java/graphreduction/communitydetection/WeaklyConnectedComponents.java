@@ -1,4 +1,4 @@
-package main.java.graphreduction;
+package main.java.graphreduction.communitydetection;
 
 import java.util.ArrayList;
 import java.util.List;

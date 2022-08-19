@@ -41,7 +41,11 @@ Community detection algorithms are used to evaluate how groups of nodes are clus
 - Label Propagation
 - Modularity Optimization (beta)
 
-
-Dice = 2 * a und b kommen zusammen vor / (a kommt vor + b kommt vor)
-
 Communityalgorithmen vergeben die communities nicht unbedingt auf Basis dessen, dass alle Knoten innerhalb einer Community verbunden sind.
+
+Knoten in einer community die möglichst viele andere Knoten aus der Community erreichen
+Knoten die möglichst viele andere Communities erreichen 
+
+Community kleinste irrelevant?
+Community mit oberen top Prozent
+
