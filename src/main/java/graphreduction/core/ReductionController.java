@@ -16,15 +16,9 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.neo4j.driver.AuthTokens;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
-import org.neo4j.driver.Record;
-import org.neo4j.driver.Session;
-import org.neo4j.driver.Values;
+import org.neo4j.driver.*;
 
 import main.java.graphreduction.centrality.Betweenness;
-import main.java.graphreduction.centrality.CentralityImpl;
 import main.java.graphreduction.centrality.Degree;
 import main.java.graphreduction.communitydetection.CommunityDetectionImpl;
 import main.java.graphreduction.communitydetection.LabelPropagation;
@@ -33,20 +27,18 @@ import main.java.graphreduction.communitydetection.ModularityOptimization;
 import main.java.graphreduction.communitydetection.WeaklyConnectedComponents;
 
 /**
- * 
- * 
- * @author (classes and interfaces only, required)
- * @version (classes and interfaces only, required. See footnote 1)
- * @param (methods and constructors only)
- * @return (methods only)
- * @exception (@throws is a synonym added in Javadoc 1.2)
- * @see
- * 
- * Vorgehen
- * Erstellen des Kookkurrenzgraphen
- * Auswahl der wichtigsten Knoten (Centrality-Klasse)
- * Markierung der wichtigsten Knoten von Hand (markNodes()-Methode)
- * 
+ * The reduction controller is the main class of the reduction project.
+ * <p>
+ * It traverses these steps:
+ * <ul>
+ *     <li> Create co-occurrence graph from neo4j DB </li>
+ *     <li> Mark important handpicked nodes </li>
+ *     <li> Execute specified algorithm(s) </li>
+ *     <li> Export results to csv </li>
+ * </ul>
+ *
+ * @author Catherine Camier
+ * @version 0.1.0
  */
 public class ReductionController implements AutoCloseable {
 
@@ -94,12 +86,12 @@ public class ReductionController implements AutoCloseable {
 			
 			// Preprocessing
 			// Find nodes that are not connected to main graph and delete those
-			WeaklyConnectedComponents wcc = new WeaklyConnectedComponents(driver);
-			//wcc.useWeaklyConnectedComponentsAlgorithm();
+			// WeaklyConnectedComponents wcc = new WeaklyConnectedComponents(driver);
+			// wcc.useWeaklyConnectedComponentsAlgorithm();
 			
 			init();
 			
-			// load to be marked node names
+			// load "to be marked" node names from list that contains handpicked nodes
 			List<String> nodes = openList();
 			
 			// mark all interesting nodes
@@ -107,16 +99,27 @@ public class ReductionController implements AutoCloseable {
 			
 			// Set algorithm and mode
 			String alg = "louvain";
-			String mode = "write";  // stream, write, stats, mutate
+			// stream, write, stats, mutate
+			String mode = "write";
 			
 			// If community algorithm is used, set centrality algorithm here
-			String centralityAlg = "degree"; //betweenness, degree
+			// centrality alg: betweenness, degree
+			// hub node type: within, toOther
+			String secondAlg = "betweenness";
 			
-			useAlgorithm(alg, mode, centralityAlg);	
+			useAlgorithm(alg, mode, secondAlg);
 			
 		}
 	}
-	
+
+	/**
+	 * Initialisiert den Graphen
+	 * <p>
+	 * Es werden alle Node Labels gelöscht und ein frischer Graph erstellt.
+	 *
+	 * @author Catherine Camier
+	 * @version 0.1.0
+	 */
 	private static void init() {
 		
 		List<Record> nodeLabels = getAllLabels();
@@ -126,85 +129,66 @@ public class ReductionController implements AutoCloseable {
 		// create graph if not exists
 		createGraph(GRAPH_NAME);
 	}
-	
-	private static void useAlgorithm(String alg, String mode, String centralityAlg){
-		List<Record> records = new ArrayList<Record>();
+
+	/**
+	 * Initialisiert den Graphen
+	 *
+	 * Es werden alle Node Labels gelöscht und ein frischer Graph erstellt.
+	 *
+	 * @author Catherine Camier
+	 * @version 0.1.0
+	 * @param alg Der Algorithmus der benutzt werden soll
+	 * @param mode Der Modus, in dem der Algorithmus ausgeführt werden soll
+	 */
+	private static void useAlgorithm(String alg, String mode, String secondAlg){
+		List<Record> records = new ArrayList<>();
 
 		switch (alg) {
 			case "betweenness":
 				Betweenness betweenness = new Betweenness(driver);
 				records = betweenness.stream(GRAPH_NAME);
-				exportToCSV(records, alg);
 				break;
 				
 			case "degree":
 				Degree degree = new Degree(driver);
 				records = degree.stream(GRAPH_NAME);
-				exportToCSV(records, alg);
 				break;
 				
 			case "louvain":
 				Louvain louvain = new Louvain(driver);
-				executeCentralityAlgorithm(mode, louvain, alg, centralityAlg);				
+				records = executeCommunityAlgorithm(mode, louvain, secondAlg);
+				alg += "-" + secondAlg;
 				break;
 				
 			case "labelP":
 				LabelPropagation labelP = new LabelPropagation(driver);
-				executeCentralityAlgorithm(mode, labelP, alg, centralityAlg);
+				records = executeCommunityAlgorithm(mode, labelP, secondAlg);
+				alg += "-" + secondAlg;
 				break;
 				
 			case "modularity":
 				ModularityOptimization modularity = new ModularityOptimization(driver);
-				executeCentralityAlgorithm(mode, modularity, alg, centralityAlg);
+				records = executeCommunityAlgorithm(mode, modularity, secondAlg);
+				alg += "-" + secondAlg;
 				break;
 	
 			default:
-				break;
+				return;
 		}
+
+		exportToCSV(records, alg);
 	}
 	
-	public static void executeCentralityAlgorithm(String mode, CommunityDetectionImpl communityDetection, String communityAlg, String centralityAlg){
-		
-		List<Record> records = new ArrayList<Record>();
-		
-		if(mode=="stream") {	
-			communityDetection.stream(GRAPH_NAME);
-		}
-		if(mode=="write") {
-			communityDetection.stream(GRAPH_NAME);
-		}
-		records = communityDetection.getIds(GRAPH_NAME);
-		
-		List<String> louvainCommunities = new ArrayList<String>();
-		//communities.add("SINGLE_NODE");
-		
-		records.forEach(record -> {
-			
-			List<Record> communityNodes = getNodesByCommunityId(record.get("communityId").asInt());
-			communityNodes.forEach(node -> {
+	public static List<Record> executeCentralityAlgorithm(String centralityAlg, List<String> communities){
 
-				setNodeLabel(node.get(0).asString(), node.get(3).asInt());
-				if(!louvainCommunities.contains("Community" + node.get(3).asInt())) {
-					louvainCommunities.add("Community" + node.get(3).asInt());
-				}
-				
-			});
-		});
-		
-		recreateGraph(louvainCommunities);
-		
-		System.out.println("Anzahl Communities: " + louvainCommunities.size());
-		
-		List<Record> list = new ArrayList<Record>();
-		
-		//float dec = 0.0f;
 		System.out.println(centralityAlg);
+		List<Record> list = new ArrayList<>();
 		
 		switch (centralityAlg) {
 			case "betweenness":
 				Betweenness betweenness = new Betweenness(driver);
 				
-				louvainCommunities.forEach(com -> {
+				communities.forEach(com -> {
 					list.addAll(betweenness.streamWithNodeLabel(GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))));
 					// getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
 				});
@@ -212,39 +196,108 @@ public class ReductionController implements AutoCloseable {
 				
 			case "degree":
 				Degree degree = new Degree(driver);
-				
-				louvainCommunities.forEach(com -> {
+
+				communities.forEach(com -> {
 					list.addAll(degree.streamWithNodeLabel(GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))));
 					
 				});
 				break;
 	
 			default:
-				return;
+				break;
 				
 		}
+		return list;
+	}
 
-		System.out.println("Export nach csv.");
-		exportToCSV(list, communityAlg + "-" + centralityAlg);
-		
-	}
-	
-	private static List<Record> getAllLabels() {
-		try (Session session = driver.session()) {
-			List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
-						.run("CALL db.labels()");
-				return result.list();
-			});
-			System.out.println(nodePropertiesWritten);
-			return nodePropertiesWritten;
+	public static List<Record> executeCommunityAlgorithm(String mode, CommunityDetectionImpl communityDetection, String secondAlg){
+
+		switch (mode) {
+			case "stream":
+				communityDetection.stream(GRAPH_NAME);
+				break;
+
+			case "write":
+				communityDetection.write(GRAPH_NAME);
+				break;
+
+			default:
+				return new ArrayList<>();
+
 		}
+
+		List<Record> ids = communityDetection.getIds(GRAPH_NAME);
+
+		List<String> communities = new ArrayList<>();
+
+		ids.forEach(record -> {
+
+			List<Record> communityNodes = getNodesByCommunityId(record.get("communityId").asInt());
+			communityNodes.forEach(node -> {
+
+				setNodeLabel(node.get(0).asString(), node.get(3).asInt());
+				if(!communities.contains("Community" + node.get(3).asInt())) {
+					communities.add("Community" + node.get(3).asInt());
+				}
+
+			});
+		});
+
+		recreateGraph(communities);
+
+		System.out.println("Anzahl Communities: " + communities.size());
+
+		List<Record> list;
+
+		switch (secondAlg) {
+			case "betweenness":
+			case "degree":
+				list = executeCentralityAlgorithm(secondAlg, communities);
+				break;
+
+			case "toOther":
+			case "within":
+				list = findRelationShips(secondAlg, communities,communityDetection);
+				break;
+
+			default:
+				return new ArrayList<>();
+
+		}
+		//System.out.println(list);
+		return list;
 	}
-	
+
+	public static List<Record> findRelationShips(String type, List<String> communities, CommunityDetectionImpl communityDetection){
+
+		List<Record> list = new ArrayList<>();
+
+		switch (type) {
+			case "within":
+				communities.forEach(com -> {
+					list.addAll(communityDetection.getNodesWithRelationshipsWithinCommunity(Integer.parseInt(com.replaceAll("\\D+",""))));
+					// getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
+				});
+				break;
+
+			case "toOther":
+				communities.forEach(com -> {
+					list.addAll(communityDetection.getNodesWithRelationshipsToOtherCommunities(Integer.parseInt(com.replaceAll("\\D+",""))));
+
+				});
+				break;
+
+			default:
+				break;
+
+		}
+		return list;
+	}
+
 	private static void getDiceCoefficient(int communityId){
 		try (Session session = driver.session()) {
 			List<Record> relationships = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("MATCH (n {communityId: " + communityId + "})-[r:IS_CONNECTED]->(c)\n"
 								+ "RETURN r.dice as dice");
 				return result.list();
@@ -260,46 +313,27 @@ public class ReductionController implements AutoCloseable {
 			//return nodePropertiesWritten.get("dice").asFloat();
 		}
 	}
-	
-	private static void deleteAllLabels(List<Record> nodeLabels) {
-		nodeLabels.forEach(label -> {
-			String str = label.get("label").asString();
-			if(str != "SINGLE_NODE") {
-				try (Session session = driver.session()) {
-					List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
-						org.neo4j.driver.Result result = tx
-								.run("MATCH (n)\n"
-										+ "REMOVE n:"+ str + "\n"
-										+ "RETURN n.name, labels(n)");
-						return result.list();
-					});
-					System.out.println(nodePropertiesWritten);
-				}
-			}
-		});
-		
-	}
-	
+
+	// ----------------- graph related methods --------------------- //
+
 	private static void dropGraph(String graphName){
 		try (Session session = driver.session()) {
 			Object nodePropertiesWritten = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("CALL gds.graph.drop('" + graphName + "');");
 				return result;
 			});
-			System.out.println(nodePropertiesWritten);
+			System.out.println("Graph dropped.");
 		}
 	}
 	
 	private static void createGraph(String graphName){
 		
-		String exists;
-		
-		//dropGraph(GRAPH_NAME);
-		
+		String exists = "FALSE";
+
 		try (Session session = driver.session()) {
 			exists = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("RETURN gds.graph.exists('" + graphName + "')");
 				return result.single().get(0).toString();
 			});
@@ -309,14 +343,14 @@ public class ReductionController implements AutoCloseable {
 		if(exists!="TRUE") {
 			try (Session session = driver.session()) {
 				Object nodePropertiesWritten = session.writeTransaction(tx -> {
-					org.neo4j.driver.Result result = tx
+					Result result = tx
 							.run("CALL gds.graph.create('" + graphName + "','SINGLE_NODE','IS_CONNECTED',{\n"
 									+ "    relationshipProperties:['dice','cost']\n"
 									+ "    })\n"
 									+ "YIELD graphName, nodeCount, relationshipCount, createMillis;");
 					return result;
 				});
-				System.out.println(nodePropertiesWritten);
+				System.out.println("Graph created.");
 			}
 		}
 		
@@ -325,72 +359,81 @@ public class ReductionController implements AutoCloseable {
 	private static void recreateGraph(List<String> communities){
 		dropGraph(GRAPH_NAME);
 		System.out.println(communities);
-		
+
 		try (Session session = driver.session()) {
 			Object nodePropertiesWritten = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("CALL gds.graph.create('ukraine', $communities,'IS_CONNECTED',{\n"
 								+ "    relationshipProperties:['dice','cost']\n"
 								+ "    })\n"
 								+ "YIELD graphName, nodeCount, relationshipCount, createMillis;", Values.parameters( "communities", communities ) );
 				return result;
 			});
-			System.out.println(nodePropertiesWritten);
+			//System.out.println(nodePropertiesWritten);
 		}
+	}
+
+	// ----------------- Node related methods --------------------- //
+
+	private static List<Record> getAllLabels() {
+		try (Session session = driver.session()) {
+			List<Record> labels = session.writeTransaction(tx -> {
+				Result result = tx
+						.run("CALL db.labels()");
+				return result.list();
+			});
+			System.out.println("Existing labels: " + labels);
+			return labels;
+		}
+	}
+
+	private static void deleteAllLabels(List<Record> nodeLabels) {
+
+		nodeLabels.forEach(label -> {
+			String str = label.get("label").asString();
+			try (Session session = driver.session()) {
+				List<Record> nodePropertiesWritten = session.writeTransaction(tx -> {
+					Result result = tx
+							.run("MATCH (n)\n"
+									+ "REMOVE n:"+ str + "\n"
+									+ "RETURN n.name, labels(n)");
+					return result.list();
+				});
+			}
+		});
 	}
 	
 	private static void setNodeLabel(String name, int id) {
 		try (Session session = driver.session()) {
 			Object nodePropertiesWritten = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("MATCH (n {name: '" + name + "'})\n"
-								+ "SET n:Community" + id + "\n"
+								+ "SET n:SINGLE_NODE:Community" + id + "\n"
 								+ "RETURN n.name, labels(n) AS labels");
 				return result.list();
 			});
 			//System.out.println(nodePropertiesWritten);
 		}
 	}
-	
-	private static List<String> openList(){
-		List<String> nodes = new ArrayList<>();
-		try (BufferedReader br = new BufferedReader(new FileReader("input/marked_nodes.csv"))) {
-		    String line;
-		    while ((line = br.readLine()) != null) {
-		        String value = line.split(",")[0];
-		        nodes.add(value);
-		    }
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return nodes;
-	}
-	
+
 	private static void markNodes(List<String> nodeNames){
 		// reset marked nodes
 		try (Session session = driver.session()) {
 			Object node = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("MATCH (n)\n"
 								+ "SET n.marked = false\n"
 								+ "RETURN n.name");
 				return result;
 				
 			});
-			
-			
 		}
 		
 		// mark new nodes
 		for (String record : nodeNames) {
 			try (Session session = driver.session()) {
 				Object node = session.writeTransaction(tx -> {
-					org.neo4j.driver.Result result = tx
+					Result result = tx
 							.run("MATCH (n {name: '" + record + "'})\n"
 									+ "SET n.marked = true\n"
 									+ "RETURN n.name");
@@ -398,19 +441,15 @@ public class ReductionController implements AutoCloseable {
 					
 				});
 				System.out.println(node);
-				
 			}
-			
-
 		}
-		
 	}
 	
 	private static void showNodes(String graphName){
 	
 		try (Session session = driver.session()) {
 			Object nodes = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("MATCH (n) RETURN n.name, n.occur, n.marked LIMIT 50");
 				return result.list();
 			});
@@ -419,10 +458,10 @@ public class ReductionController implements AutoCloseable {
 	}
 	
 	private static List<Record> getNodesByCommunityId(int id){
-		List<Record> nodes = new ArrayList<Record>();
+		List<Record> nodes = new ArrayList<>();
 		try (Session session = driver.session()) {
 			nodes = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
+				Result result = tx
 						.run("MATCH (n) WHERE n.communityId=" + id + " RETURN n.name, n.occur, n.marked, n.communityId");
 				return result.list();
 			});
@@ -430,14 +469,35 @@ public class ReductionController implements AutoCloseable {
 		}
 		return nodes;
 	}
+
+	// -------- File System or neo4j related methods ------------ //
+
+	private static List<String> openList(){
+		List<String> nodes = new ArrayList<>();
+		try (BufferedReader br = new BufferedReader(new FileReader("input/marked_nodes.csv"))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				String value = line.split(",")[0];
+				nodes.add(value);
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return nodes;
+	}
 	
 	private static void exportToCSV(List<Record> records, String fileName){
 		File csvOutputFile = new File("output/" + fileName + ".csv");
 	    try (PrintWriter pw = new PrintWriter(csvOutputFile)) {
-
-	    	pw.println("name;score;marked;communityId;occur");
+			System.out.println(records);
+			System.out.println(records.size());
+	    	pw.println("name;score;marked;communityId;occur;relationships");
 	        records.stream().forEach(record -> {
-	        	pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ",") + ";" + record.get("marked") + ";" + record.get("communityId") + ";" + record.get("occur"));
+	        	pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ",") + ";" + record.get("marked") + ";" + record.get("communityId") + ";" + record.get("occur") + ";" + record.get("relationships"));
 	        });
 	    }
 	    catch (FileNotFoundException e) {
@@ -448,21 +508,17 @@ public class ReductionController implements AutoCloseable {
 	}
 
 	/**
-	 * Returns an Image object that can then be painted on the screen. The url
-	 * argument must specify an absolute <a href="#{@link}">{@link URL}</a>. The
-	 * name argument is a specifier that is relative to the url argument.
+	 * Checks if the socket is alive.
 	 * <p>
-	 * This method always returns immediately, whether or not the image exists. When
-	 * this applet attempts to draw the image on the screen, the data will be
-	 * loaded. The graphics primitives that draw the image will incrementally paint
-	 * on the screen.
+	 * Neo4j needs to be running to execute any of the algorithms. This method checks, if the specified socket
+	 * is alive.
 	 *
-	 * @param url  an absolute URL giving the base location of the image
-	 * @param name the location of the image, relative to the url argument
-	 * @return the image at the specified URL
+	 * @param hostName the host name on which neo4j is running. Usually localhost.
+	 * @param port the port that is used for the neo4j browser
+	 * @return isAlive
 	 * @see Image
 	 */
-	public static boolean isSocketAlive(String hostName, int port) {
+	public static Boolean isSocketAlive(String hostName, int port) {
 		boolean isAlive = false;
 
 		SocketAddress socketAddress = new InetSocketAddress(hostName, port);

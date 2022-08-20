@@ -1,5 +1,8 @@
 # GraphReduction
 
+# neo4j Version
+- 4.4.4
+
 # Plugins
 - neo4j graph data science 1.8.3
 
@@ -36,12 +39,15 @@ Centrality algorithms are used to determine the importance of distinct nodes in 
 	- Undirected, über Score von 100
 
 ## Community Detection
-Community detection algorithms are used to evaluate how groups of nodes are clustered or partitioned, as well as their tendency to strengthen or break apart.
+Community detection algorithms are used to evaluate how groups of nodes are clustered or partitioned, as well as their
+tendency to strengthen or break apart.
 - Louvain
 - Label Propagation
 - Modularity Optimization (beta)
 
-Communityalgorithmen vergeben die communities nicht unbedingt auf Basis dessen, dass alle Knoten innerhalb einer Community verbunden sind.
+## TBD
+Communityalgorithmen vergeben die communities nicht unbedingt auf Basis dessen, dass alle Knoten innerhalb einer
+Community verbunden sind.
 
 Knoten in einer community die möglichst viele andere Knoten aus der Community erreichen
 Knoten die möglichst viele andere Communities erreichen 
@@ -49,3 +55,13 @@ Knoten die möglichst viele andere Communities erreichen
 Community kleinste irrelevant?
 Community mit oberen top Prozent
 
+Community Within:
+Median, Top5, Top xy%
+
+Community toOther
+Anzahl Communities, wie viele anderen sollen erreicht werden
+bspw. Jede fünfte (von 60) oder 1% von 100.000
+
+Louvain: Seed für Start-CommunityIds
+
+Java Doc ergänzen

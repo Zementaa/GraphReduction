@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.neo4j.driver.Driver;
+import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 
 /**
@@ -43,7 +44,7 @@ public class WeaklyConnectedComponents {
 		System.out.println("start wcc");
 		
 		// First assign every node a cluster ID
-		giveNodesClusterID2();
+		giveNodesClusterID();
 
 		// Then return the cluster IDs and their cluster size
 		getClusterIDsSizeDESC();
@@ -54,26 +55,14 @@ public class WeaklyConnectedComponents {
 
 		// Afterall all clusters that don't belong to the biggest cluster are deleted
 		// deleteClustersThatAreNotID(max);
-		
+
+		deleteClusterIdProperty();
+
 		System.out.println("end wcc");
 
 	}
 
 	public void giveNodesClusterID() {
-		try (Session session = this.driver.session()) {
-			Object nodePropertiesWritten = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx
-						.run("call gds.wcc.write(\n" + "{\n" + "nodeQuery: 'match (n) return id(n) as id',\n"
-								+ "relationshipQuery:'MATCH (a)-->(b) RETURN id(a) as source, id(b) as target',\n"
-								+ "writeProperty:'group',\n" + "consecutiveIds:true\n" + "}\n" + ")\n"
-								+ "YIELD nodePropertiesWritten\n" + "return nodePropertiesWritten;");
-				return result.single().get(0);
-			});
-			System.out.println("Es wurde " + nodePropertiesWritten + " Knoten eine Cluster-ID vergeben.");
-		}
-	}
-	
-	public void giveNodesClusterID2() {
 		try (Session session = this.driver.session()) {
 			Object nodePropertiesWritten = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx
@@ -127,6 +116,16 @@ public class WeaklyConnectedComponents {
 				return result.single().get(0);
 			});
 			System.out.println("Es wurde alle Knoten die nicht zu Cluster " + id + " gehören gelöscht.");
+		}
+	}
+
+	public  void deleteClusterIdProperty() {
+		try (Session session = this.driver.session()) {
+			session.writeTransaction(tx -> {
+				Result result = tx.run("MATCH (n) REMOVE n.componentId");
+				return result;
+			});
+			System.out.println("Temporäre ClusterId entfernt.");
 		}
 	}
 
