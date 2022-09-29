@@ -2,13 +2,16 @@ package main.java.graphreduction.communitydetection;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.neo4j.driver.*;
 
 public abstract class CommunityDetectionImpl implements CommunityDetection{
 	
 private Driver driver;
+private static Logger logger = LoggerFactory.getLogger(CommunityDetectionImpl.class);
 	
-	public CommunityDetectionImpl(Driver driver) {
+	protected CommunityDetectionImpl(Driver driver) {
 		super();
 		this.setDriver(driver);
 	}
@@ -17,13 +20,13 @@ private Driver driver;
 	public List<Record> getIds(String graphName) {
 
 		try (Session session = this.getDriver().session()) {
-			List<Record> list = session.writeTransaction(tx -> {
+			List<Record> ids = session.writeTransaction(tx -> {
 				Result result = tx.run("MATCH (n)\n"
 						+ "WITH DISTINCT n.communityId AS communityId RETURN communityId");
 				return result.list();
 			});
-			System.out.println(list);
-			return list;
+			logger.info(ids.toString());
+			return ids;
 
 		}
 	}
@@ -37,7 +40,7 @@ private Driver driver;
 						+ "ORDER BY relationships DESC ", Values.parameters( "communityId", communityId ));
 				return result.list();
 			});
-			//System.out.println(list);
+			logger.info(list.toString());
 			return list;
 
 		}

@@ -43,7 +43,6 @@ Community detection algorithms are used to evaluate how groups of nodes are clus
 tendency to strengthen or break apart.
 - Louvain
 - Label Propagation
-- Modularity Optimization (beta)
 
 ## TBD
 Communityalgorithmen vergeben die communities nicht unbedingt auf Basis dessen, dass alle Knoten innerhalb einer
