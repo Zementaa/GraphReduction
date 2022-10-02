@@ -41,3 +41,6 @@ buildNumber.properties
 .classpath
 
 .idea/
+
+/output
+/src/test/resources

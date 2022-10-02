@@ -40,7 +40,7 @@ public class Degree extends CentralityImpl {
 
 			try (Session session = this.getDriver().session()) {
 				List<Record> list = session.writeTransaction(tx -> {
-					org.neo4j.driver.Result result = tx.run("CALL gds.degree.stream($graphName, { relationshipWeightProperty: 'cost', nodeLabels: [$community] })\n"
+					org.neo4j.driver.Result result = tx.run("CALL gds.degree.stream($graphName, { relationshipWeightProperty: 'cost', orientation: 'UNDIRECTED', nodeLabels: [$community] })\n"
 							+ " YIELD nodeId, score\n"
 							+ " WHERE gds.util.asNode(nodeId).communityId=$communityId\n"
 							//+ " WHERE score<>0\n"

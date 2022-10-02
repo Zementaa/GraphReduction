@@ -61,11 +61,9 @@ private static Logger logger = LoggerFactory.getLogger(CommunityDetectionImpl.cl
 		}
 	}
 
-
 	public Driver getDriver() {
 		return driver;
 	}
-
 
 	public void setDriver(Driver driver) {
 		this.driver = driver;

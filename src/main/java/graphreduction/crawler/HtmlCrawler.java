@@ -28,10 +28,16 @@ public class HtmlCrawler extends WebCrawler {
 		String urlString = url.getURL().toLowerCase();
 		return !EXCLUSIONS.matcher(urlString).matches()
 				&& (urlString.startsWith("https://www.standard.co.uk/archive")
-				|| (urlString.startsWith("https://www.standard.co.uk/news/world")
-				&& Pattern.compile(Pattern.quote("Ukraine"), Pattern.CASE_INSENSITIVE).matcher(urlString).find())
-				|| (urlString.startsWith("https://www.standard.co.uk/news/politics")
-				&& Pattern.compile(Pattern.quote("Ukraine"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()));
+					|| (urlString.startsWith("https://www.standard.co.uk/news/world")
+						&& (Pattern.compile(Pattern.quote("Ukraine"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()
+							|| Pattern.compile(Pattern.quote("Russia"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()
+							|| Pattern.compile(Pattern.quote("Putin"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()
+							|| Pattern.compile(Pattern.quote("Selenskyj"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()))
+					|| (urlString.startsWith("https://www.standard.co.uk/news/politics")
+						&& (Pattern.compile(Pattern.quote("Ukraine"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()
+							|| Pattern.compile(Pattern.quote("Russia"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()
+							|| Pattern.compile(Pattern.quote("Putin"), Pattern.CASE_INSENSITIVE).matcher(urlString).find()
+							|| Pattern.compile(Pattern.quote("Selenskyj"), Pattern.CASE_INSENSITIVE).matcher(urlString).find())));
 	}
 
 	@Override
