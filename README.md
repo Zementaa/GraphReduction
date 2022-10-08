@@ -58,8 +58,9 @@ tendency to strengthen or break apart.
 - Louvain
 - Label Propagation
 
-Community Within: Median, Top5, Top xy%
-Community toOther Anzahl Communities, wie viele anderen sollen erreicht werden bspw. Jede fünfte (von 60) oder 1% von 100.000
+Community within: Median, Top5, Top xy%
+Community outside: Anzahl Communities, wie viele anderen sollen erreicht werden bspw. Jede fünfte (von 60) oder 1 %
+von 100.000
 
 ## Community Detection i.V.m. Centrality
 - Zuerst Ausführung eines Community Detection Algorithmus.

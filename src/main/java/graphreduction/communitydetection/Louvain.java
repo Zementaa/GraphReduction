@@ -6,11 +6,13 @@ import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
 
+/**
+ *
+ */
 public class Louvain extends CommunityDetectionImpl {
 	
 	public Louvain(Driver driver) {
 		super(driver);
-		// TODO Auto-generated constructor stub
 	}
 	
 	@Override
@@ -18,7 +20,8 @@ public class Louvain extends CommunityDetectionImpl {
 
 		try (Session session = this.getDriver().session()) {
 			List<Record> list = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.stream('ukraine', { relationshipWeightProperty: 'cost' })\n"
+				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.stream('ukraine', {"
+						+ "relationshipWeightProperty: 'cost', seedProperty: 'seed' })\n"
 						+ "YIELD nodeId, communityId, intermediateCommunityIds\n"
 						+ "RETURN gds.util.asNode(nodeId).name AS name, communityId\n"
 						+ "ORDER BY communityId DESC, name");
@@ -35,7 +38,8 @@ public class Louvain extends CommunityDetectionImpl {
 
 		try (Session session = this.getDriver().session()) {
 			List<Record> list = session.writeTransaction(tx -> {
-				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.write('ukraine', { relationshipWeightProperty: 'cost', writeProperty: 'communityId' })\n"
+				org.neo4j.driver.Result result = tx.run("CALL gds.louvain.write('ukraine', {"
+						+ "relationshipWeightProperty: 'cost', writeProperty: 'communityId', seedProperty: 'seed' })\n"
 						+ "YIELD communityCount, modularity, modularities");
 				return result.list();
 			});

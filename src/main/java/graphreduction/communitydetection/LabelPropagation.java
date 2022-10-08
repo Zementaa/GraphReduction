@@ -10,7 +10,6 @@ public class LabelPropagation extends CommunityDetectionImpl {
 
 	public LabelPropagation(Driver driver) {
 		super(driver);
-		// TODO Auto-generated constructor stub
 	}
 
 	@Override
@@ -36,7 +35,7 @@ public class LabelPropagation extends CommunityDetectionImpl {
 		try (Session session = this.getDriver().session()) {
 			List<Record> list = session.writeTransaction(tx -> {
 				org.neo4j.driver.Result result = tx.run("CALL gds.labelPropagation.write('ukraine', { relationshipWeightProperty: 'cost', writeProperty: 'communityId' })\n"
-						+ " YIELD communityCount, modularity, modularities");
+						+ "YIELD communityCount, ranIterations, didConverge");
 				return result.list();
 			});
 			System.out.println(list);

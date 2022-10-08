@@ -1,19 +1,6 @@
 package main.java.graphreduction.core;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import java.awt.Image;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.SocketTimeoutException;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -21,7 +8,6 @@ import org.neo4j.driver.*;
 
 import main.java.graphreduction.centrality.Betweenness;
 import main.java.graphreduction.centrality.Degree;
-import main.java.graphreduction.communitydetection.CommunityDetectionImpl;
 import main.java.graphreduction.communitydetection.LabelPropagation;
 import main.java.graphreduction.communitydetection.Louvain;
 import main.java.graphreduction.crawler.CrawlController;
@@ -44,12 +30,9 @@ import main.java.graphreduction.crawler.CrawlConfig;
 public class ReductionController implements AutoCloseable {
 
 	private static Driver driver;
-	
-	private static final String GRAPH_NAME = "ukraine";
 
 	public ReductionController(String uri, String user, String password) {
 		driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
-
 	}
 
 	@Override
@@ -62,20 +45,20 @@ public class ReductionController implements AutoCloseable {
 		boolean crawlFirst = false; // set crawl mode
 
 		if(crawlFirst == true){
-			FileUtils.cleanDirectory(new File("src/test/resources/crawler4j/papers/"));
+			FileUtils.cleanDirectory(new File(ReductionConfig.NEWSPAPER_DIRECTORY));
 			crawlNewspaper();
 		}
 
 		FileSystemNetworkController fsnController = new FileSystemNetworkController();
 
-		boolean isAlive = fsnController.isSocketAlive("localhost", 7687);
+		boolean isAlive = fsnController.isSocketAlive("localhost", ReductionConfig.NEO4J_PORT);
 
 		System.out.println("Neo4j Console wurde gestartet: " + isAlive);
 		if (!isAlive) {
 			System.out.println("Neo4j console muss zunächst gestartet werden.");
 			return;
 		}
-		try (ReductionController controller = new ReductionController("bolt://localhost:7687", "neo4j", "password")) {
+		try (ReductionController controller = new ReductionController(ReductionConfig.NEO4J_URI, ReductionConfig.NEO4J_USER, ReductionConfig.NEO4J_PWD)) {
 
 			/* Algorithms overview
 			*
@@ -86,34 +69,43 @@ public class ReductionController implements AutoCloseable {
 			* Community Detection
 			* 	louvain - Louvain Algorithmus
 			* 	labelP - Label Propagation
+			*
+			* Degree calculation
+			*   within
+			*   outside
 			* 	
 			*/
-			
-			init();
-			
-			// load "to be marked" node names from list that contains handpicked nodes
-			List<String> nodes = fsnController.openList("input/marked_nodes.csv");
 
 			GraphController graphController = new GraphController(driver);
+			init(graphController);
+			
+			// load "to be marked" node names from list that contains handpicked nodes
+			List<String> nodes = fsnController.openList(ReductionConfig.PATH_TO_MARKED_NODES_LIST);
+
 			// mark all interesting nodes
 			graphController.markNodes(nodes);
 			
 			// Set algorithm and mode
-			String alg = "louvain";
+			String alg = ReductionConfig.Algorithms.LOUVAIN.getText();
 			// stream, write
-			String mode = "write";
+			// must always be 'write' for community detection
+			String mode = ReductionConfig.Modes.WRITE.getText();
 			
-			// If community algorithm is used, set centrality algorithm here
+			// If community algorithm is used, set centrality or degree calc algorithm here
 			// centrality alg: betweenness, degree
-			// hub node type: within, toOther
-			String secondAlg = "within";
-			
+			// hub node type: within, outside
+			String secondAlg = ReductionConfig.Algorithms.WITHIN.getText();
+
+			final long createdMillis = System.currentTimeMillis();
+
 			useAlgorithm(alg, mode, secondAlg);
-			
+
+			long nowMillis = System.currentTimeMillis();
+			System.out.println("Algorithm took " + ((nowMillis - createdMillis) / 1000) + " seconds for completion.");
 		}
 	}
 	/**
-	 * Crawlt den entsprechenden Archivbereich der Evening Standard.
+	 * Crawls the specified archive folder of the Evening Standard.
 	 * <p>
 	 * Es werden alle Artikel heruntergeladen, die thematisch in den Ukraine-Russland-Konflikt passen.
 	 * Es wird nur der Bereich vier Wochen nach dem Beginn des Konflikts gecrawlt.
@@ -133,18 +125,18 @@ public class ReductionController implements AutoCloseable {
 	 * Es werden alle Node Labels gelöscht und ein frischer Graph erstellt.
 	 *
 	 */
-	private static void init() {
-
-		GraphController graphController = new GraphController(driver);
+	private static void init(GraphController graphController) {
 
 		List<Record> nodeLabels = graphController.getAllLabels();
 
 		graphController.deleteAllLabels(nodeLabels);
 
 		graphController.setNodeLabelSingleNode();
+
+		graphController.setCommunityIdToIdentity();
 		
 		// create graph if not exists
-		graphController.createGraph(GRAPH_NAME);
+		graphController.createGraph(ReductionConfig.GRAPH_NAME);
 	}
 
 	/**
@@ -155,18 +147,18 @@ public class ReductionController implements AutoCloseable {
 	 */
 	private static void useAlgorithm(String alg, String mode, String secondAlg){
 		List<Record> records;
-		AlgorithmController algorithmController = new AlgorithmController(driver, GRAPH_NAME);
+		AlgorithmController algorithmController = new AlgorithmController(driver, ReductionConfig.GRAPH_NAME);
 
 		switch (alg) {
 			// TODO kurze Beschreibung
 			case "betweenness":
 				Betweenness betweenness = new Betweenness(driver);
-				records = betweenness.stream(GRAPH_NAME);
+				records = betweenness.stream(ReductionConfig.GRAPH_NAME);
 				break;
 				
 			case "degree":
 				Degree degree = new Degree(driver);
-				records = degree.stream(GRAPH_NAME);
+				records = degree.stream(ReductionConfig.GRAPH_NAME);
 				break;
 				
 			case "louvain":

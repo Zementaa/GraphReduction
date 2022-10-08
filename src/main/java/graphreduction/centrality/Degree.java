@@ -11,7 +11,6 @@ public class Degree extends CentralityImpl {
 
 	public Degree(Driver driver) {
 		super(driver);
-		// TODO Auto-generated constructor stub
 	}
 
 		// Verwenden - weighted
@@ -25,7 +24,7 @@ public class Degree extends CentralityImpl {
 							+ "    orientation: 'UNDIRECTED'\n"
 							+ "})\n"
 							+ "YIELD nodeId, score\n"
-							+ "RETURN gds.util.asNode(nodeId).name AS name, score\n"
+							+ "RETURN gds.util.asNode(nodeId).name AS name, score, gds.util.asNode(nodeId).marked AS marked, gds.util.asNode(nodeId).occur AS occur\n"
 							+ "ORDER BY score DESC, name ASC\n");
 					return result.list();
 				});

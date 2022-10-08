@@ -100,7 +100,7 @@ public class AlgorithmController {
 				list = executeCentralityAlgorithm(secondAlg, communities);
 				break;
 
-			case "toOther":
+			case "outside":
 			case "within":
 				list = findRelationShips(secondAlg, communities,communityDetection);
 				break;
@@ -127,7 +127,7 @@ public class AlgorithmController {
 				});
 				break;
 
-			case "toOther":
+			case "outside":
 				communities.forEach(com -> {
 					list.addAll(communityDetection.getNodesWithRelationshipsToOtherCommunities(Integer.parseInt(com.replaceAll("\\D+",""))));
 

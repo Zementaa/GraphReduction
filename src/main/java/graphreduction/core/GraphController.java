@@ -41,8 +41,9 @@ public class GraphController {
 			try (Session session = driver.session()) {
 				Object nodePropertiesWritten = session.writeTransaction(tx -> {
 					Result result = tx
-							.run("CALL gds.graph.create('" + graphName + "','SINGLE_NODE','IS_CONNECTED',{\n"
-									+ "    relationshipProperties:['dice','cost']\n"
+							.run("CALL gds.graph.create('" + graphName + "','SINGLE_NODE'," +
+									"{IS_CONNECTED:{properties:'cost'}},{\n"
+									+ "    nodeProperties:['seed']\n"
 									+ "    })\n"
 									+ "YIELD graphName, nodeCount, relationshipCount, createMillis;");
 					return result;
@@ -60,8 +61,9 @@ public class GraphController {
 		try (Session session = driver.session()) {
 			Object nodePropertiesWritten = session.writeTransaction(tx -> {
 				Result result = tx
-						.run("CALL gds.graph.create('ukraine', $communities,'IS_CONNECTED',{\n"
-								+ "    relationshipProperties:['dice','cost']\n"
+						.run("CALL gds.graph.create('" + graphName + "', $communities," +
+								"{IS_CONNECTED:{properties:'cost'}},{\n"
+								+ "    nodeProperties:['seed']\n"
 								+ "    })\n"
 								+ "YIELD graphName, nodeCount, relationshipCount, createMillis;", Values.parameters( "communities", communities ) );
 				return result;
@@ -152,6 +154,24 @@ public class GraphController {
 				});
 				System.out.println(node);
 			}
+		}
+	}
+
+	void setCommunityIdToIdentity(){
+		try (Session session = driver.session()) {
+			session.writeTransaction(tx -> {
+				Result result = tx
+						.run("MATCH (n) REMOVE n.communityId RETURN n.name");
+				return result.list();
+			});
+		}
+
+		try (Session session = driver.session()) {
+			session.writeTransaction(tx -> {
+				Result result = tx
+						.run("MATCH (n) SET n.seed=id(n) RETURN n.seed");
+				return result.list();
+			});
 		}
 	}
 

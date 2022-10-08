@@ -11,7 +11,6 @@ public class Betweenness extends CentralityImpl{
 
 	public Betweenness(Driver driver) {
 		super(driver);
-		// TODO Auto-generated constructor stub
 	}
 
 		// Verwenden - unweighted
@@ -23,7 +22,7 @@ public class Betweenness extends CentralityImpl{
 					org.neo4j.driver.Result result = tx.run("CALL gds.betweenness.stream('" + graphName + "')\n"
 							+ "YIELD nodeId, score\n"
 							//+ "WHERE score<>0\n"
-							+ "RETURN gds.util.asNode(nodeId).name AS name, score\n"
+							+ "RETURN gds.util.asNode(nodeId).name AS name, score, gds.util.asNode(nodeId).marked AS marked, gds.util.asNode(nodeId).occur AS occur\n"
 							+ "ORDER BY score DESC\n");
 					return result.list();
 				});
