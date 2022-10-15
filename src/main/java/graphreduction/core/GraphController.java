@@ -42,7 +42,7 @@ public class GraphController {
 				Object nodePropertiesWritten = session.writeTransaction(tx -> {
 					Result result = tx
 							.run("CALL gds.graph.create('" + graphName + "','SINGLE_NODE'," +
-									"{IS_CONNECTED:{properties:'cost'}},{\n"
+									"{IS_CONNECTED:{properties:'cost', orientation: 'UNDIRECTED'}},{\n"
 									+ "    nodeProperties:['seed']\n"
 									+ "    })\n"
 									+ "YIELD graphName, nodeCount, relationshipCount, createMillis;");
@@ -62,7 +62,7 @@ public class GraphController {
 			Object nodePropertiesWritten = session.writeTransaction(tx -> {
 				Result result = tx
 						.run("CALL gds.graph.create('" + graphName + "', $communities," +
-								"{IS_CONNECTED:{properties:'cost'}},{\n"
+								"{IS_CONNECTED:{properties:'cost', orientation: 'UNDIRECTED'}},{\n"
 								+ "    nodeProperties:['seed']\n"
 								+ "    })\n"
 								+ "YIELD graphName, nodeCount, relationshipCount, createMillis;", Values.parameters( "communities", communities ) );
@@ -207,6 +207,134 @@ public class GraphController {
 				return result.single().get(0);
 			});
 			System.out.println("Es wurden alle Knoten die zu Community" + id + " gehören gelöscht.");
+		}
+	}
+
+	int getNumberOfNodesInGraph(){
+		int number = 0;
+		try (Session session = driver.session()) {
+			number = session.writeTransaction(tx -> {
+				Result result = tx
+						.run("MATCH (n) Return count(n)");
+				return result.single().get(0).asInt();
+			});
+		}
+		return number;
+	}
+
+	void deleteNodesByCriteria(String criteria, float threshold) {
+
+		switch (criteria) {
+			case "under_score":
+				try (Session session = driver.session()) {
+					session.writeTransaction(tx -> {
+						org.neo4j.driver.Result result = tx.run("MATCH (n) WHERE n.score < " + threshold + " DETACH DELETE n");
+						return result.list();
+					});
+					System.out.println("Es wurden alle Knoten gelöscht, die dem Kriterium " + criteria + ": " + threshold + " entsprechen.");
+				}
+				break;
+
+			case "not_in_top_percent":
+
+				int number_of_nodes = 0;
+				try (Session session = driver.session()) {
+					number_of_nodes = session.writeTransaction(tx -> {
+						Result result = tx.run("MATCH (n) RETURN count(n)");
+						return result.single().get(0).asInt();
+					});
+				}
+				int top_percent = Math.round(number_of_nodes * threshold);
+
+				List<Record> nodes = new ArrayList<>();
+				try (Session session = driver.session()) {
+					nodes = session.writeTransaction(tx -> {
+						org.neo4j.driver.Result result = tx.run("MATCH (n)\n" +
+								"RETURN n.score\n" +
+								"ORDER BY n.score DESC\n" +
+								"LIMIT " + top_percent );
+						return result.list();
+					});
+				}
+				Record node = nodes.get(nodes.size() - 1);
+
+				String value = String.valueOf(node.get("n.score"));
+
+				try (Session session = driver.session()) {
+					session.writeTransaction(tx -> {
+						org.neo4j.driver.Result result = tx.run("MATCH (n) WHERE n.score < " + value + " DETACH DELETE n");
+						return result.list();
+					});
+					System.out.println("Es wurden alle Knoten gelöscht, die dem Kriterium " + criteria + ": " + threshold + ", also einem Score von weniger als " + value + " entsprechen.");
+				}
+				break;
+
+			case "least_score_percent":
+					List<Record> scores = new ArrayList<>();
+				try (Session session = driver.session()) {
+					scores = session.writeTransaction(tx -> {
+						Result result = tx.run("MATCH (n) RETURN n.score");
+						return result.list();
+					});
+				}
+				double sumOfScores = 0;
+				for (Record score : scores) {
+					sumOfScores += score.get("n.score").asDouble();
+				}
+
+				List<Record> nodes2 = new ArrayList<>();
+				try (Session session = driver.session()) {
+					nodes2 = session.writeTransaction(tx -> {
+						org.neo4j.driver.Result result = tx.run("MATCH (n)\n" +
+								"RETURN n.score, id(n) AS id\n" +
+								"ORDER BY n.score ASC");
+						return result.list();
+					});
+				}
+
+				List<Record> nodesToDelete = new ArrayList<>();
+				double tenPercentSum = 0.0F;
+				for (Record node2 : nodes2) {
+					tenPercentSum += node2.get("n.score").asDouble();
+
+					if(tenPercentSum / sumOfScores > 0.1){
+						break;
+					}
+					nodesToDelete.add(node2);
+				}
+
+				List<String> ids = new ArrayList<>();
+				for (Record node3 : nodesToDelete) {
+					ids.add(String.valueOf(node3.get("id").asInt()));
+				}
+
+				System.out.println(ids);
+
+				try (Session session = driver.session()) {
+					session.writeTransaction(tx -> {
+						org.neo4j.driver.Result result = tx.run("MATCH (n) " +
+								"WHERE id(n) in " + ids +
+								" DETACH DELETE n");
+						return result.list();
+					});
+					System.out.println("Es wurden alle Knoten gelöscht, die dem Kriterium " + criteria + ": " + threshold + " entsprechen.");
+				}
+
+				break;
+
+			default:
+		}
+	}
+
+	public void deleteScores() {
+		try (Session session = driver.session()) {
+			session.writeTransaction(tx -> {
+				org.neo4j.driver.Result result = tx.run("MATCH (n)\n" +
+						"REMOVE n.score\n" +
+						"RETURN n.name");
+				return result.list();
+			});
+			System.out.println("Score wurde bereinigt.");
 		}
 	}
 }

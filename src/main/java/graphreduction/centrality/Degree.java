@@ -55,7 +55,17 @@ public class Degree extends CentralityImpl {
 
 		@Override
 		public void write(String graphName) {
-			// TODO Auto-generated method stub
-			
+			try (Session session = this.getDriver().session()) {
+				List<Record> list = session.writeTransaction(tx -> {
+					org.neo4j.driver.Result result = tx.run("CALL gds.degree.write('" + graphName + "',{\n"
+							+ "    relationshipWeightProperty: 'cost',\n"
+							+ "    orientation: 'UNDIRECTED', writeProperty: 'score'\n"
+							+ "})\n"
+							+ "YIELD centralityDistribution, nodePropertiesWritten\n" +
+							"RETURN centralityDistribution.min AS minimumScore, centralityDistribution.mean AS meanScore, nodePropertiesWritten");
+					return result.list();
+				});
+				System.out.println(list);
+			}
 		}
 }

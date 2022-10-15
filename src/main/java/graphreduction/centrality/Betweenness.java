@@ -53,7 +53,13 @@ public class Betweenness extends CentralityImpl{
 
 		@Override
 		public void write(String graphName) {
-			// TODO Auto-generated method stub
-			
+			try (Session session = this.getDriver().session()) {
+				session.writeTransaction(tx -> {
+					org.neo4j.driver.Result result = tx.run("CALL gds.betweenness.write('" + graphName + "', { writeProperty: 'score' })\n"
+							+ "YIELD centralityDistribution, nodePropertiesWritten\n" +
+							"RETURN centralityDistribution.min AS minimumScore, centralityDistribution.mean AS meanScore, nodePropertiesWritten");
+					return result.list();
+				});
+			}
 		}
 }

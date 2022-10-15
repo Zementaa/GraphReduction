@@ -1,6 +1,7 @@
 package main.java.graphreduction.core;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -86,7 +87,7 @@ public class ReductionController implements AutoCloseable {
 			graphController.markNodes(nodes);
 			
 			// Set algorithm and mode
-			String alg = ReductionConfig.Algorithms.LOUVAIN.getText();
+			String alg = ReductionConfig.Algorithms.DEGREE.getText();
 			// stream, write
 			// must always be 'write' for community detection
 			String mode = ReductionConfig.Modes.WRITE.getText();
@@ -94,14 +95,30 @@ public class ReductionController implements AutoCloseable {
 			// If community algorithm is used, set centrality or degree calc algorithm here
 			// centrality alg: betweenness, degree
 			// hub node type: within, outside
-			String secondAlg = ReductionConfig.Algorithms.WITHIN.getText();
+			String secondAlg = ReductionConfig.Algorithms.BETWEENNESS.getText();
+
+			// Criteria by that the specified graph should be reduced
+			// least_score_percent - for example least 10 % (0.1) of all scores
+			// not_in_top_percent - for example not in top 15 % (0.15F)
+			// under_score - for example under 500
+			String reductionCriteria = "least_score_percent";
+			float threshold = 0.10F;
+
+			// WARNING - permanently deletes nodes - make sure to have a copy
+			boolean deletionActivated = false; // set to true, to explicitly delete nodes at the end of the algorithm
 
 			final long createdMillis = System.currentTimeMillis();
 
+			System.out.println("Es befinden sich " + graphController.getNumberOfNodesInGraph() + " Knoten im Graph.");
 			useAlgorithm(alg, mode, secondAlg);
+			System.out.println("Es befinden sich " + graphController.getNumberOfNodesInGraph() + " Knoten im Graph.");
 
 			long nowMillis = System.currentTimeMillis();
-			System.out.println("Algorithm took " + ((nowMillis - createdMillis) / 1000) + " seconds for completion.");
+			System.out.println("Algorithm took " + ((nowMillis - createdMillis) / 1000) + " seconds / " + (nowMillis - createdMillis) + " milliseconds for completion.");
+
+			if(deletionActivated==true){
+				graphController.deleteNodesByCriteria(reductionCriteria, threshold);
+			}
 		}
 	}
 	/**
@@ -134,6 +151,8 @@ public class ReductionController implements AutoCloseable {
 		graphController.setNodeLabelSingleNode();
 
 		graphController.setCommunityIdToIdentity();
+
+		graphController.deleteScores();
 		
 		// create graph if not exists
 		graphController.createGraph(ReductionConfig.GRAPH_NAME);
@@ -153,11 +172,19 @@ public class ReductionController implements AutoCloseable {
 			// TODO kurze Beschreibung
 			case "betweenness":
 				Betweenness betweenness = new Betweenness(driver);
+
+				if(mode=="write"){
+					betweenness.write(ReductionConfig.GRAPH_NAME);
+				}
 				records = betweenness.stream(ReductionConfig.GRAPH_NAME);
 				break;
 				
 			case "degree":
 				Degree degree = new Degree(driver);
+
+				if(mode=="write"){
+					degree.write(ReductionConfig.GRAPH_NAME);
+				}
 				records = degree.stream(ReductionConfig.GRAPH_NAME);
 				break;
 				
