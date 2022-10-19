@@ -87,7 +87,7 @@ public class ReductionController implements AutoCloseable {
 			graphController.markNodes(nodes);
 			
 			// Set algorithm and mode
-			String alg = ReductionConfig.Algorithms.DEGREE.getText();
+			String alg = ReductionConfig.Algorithms.LABEL_PROPAGATION.getText();
 			// stream, write
 			// must always be 'write' for community detection
 			String mode = ReductionConfig.Modes.WRITE.getText();

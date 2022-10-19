@@ -42,7 +42,7 @@ public class GraphController {
 				Object nodePropertiesWritten = session.writeTransaction(tx -> {
 					Result result = tx
 							.run("CALL gds.graph.create('" + graphName + "','SINGLE_NODE'," +
-									"{IS_CONNECTED:{properties:'cost', orientation: 'UNDIRECTED'}},{\n"
+									"{IS_CONNECTED:{properties:'cost'}},{\n"
 									+ "    nodeProperties:['seed']\n"
 									+ "    })\n"
 									+ "YIELD graphName, nodeCount, relationshipCount, createMillis;");
@@ -62,7 +62,7 @@ public class GraphController {
 			Object nodePropertiesWritten = session.writeTransaction(tx -> {
 				Result result = tx
 						.run("CALL gds.graph.create('" + graphName + "', $communities," +
-								"{IS_CONNECTED:{properties:'cost', orientation: 'UNDIRECTED'}},{\n"
+								"{IS_CONNECTED:{properties:'cost'}},{\n"
 								+ "    nodeProperties:['seed']\n"
 								+ "    })\n"
 								+ "YIELD graphName, nodeCount, relationshipCount, createMillis;", Values.parameters( "communities", communities ) );
