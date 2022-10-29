@@ -167,10 +167,9 @@ public class ReductionController implements AutoCloseable {
 		AlgorithmController algorithmController = new AlgorithmController(driver, ReductionConfig.GRAPH_NAME);
 
 		switch (alg) {
-			// TODO kurze Beschreibung
 			case "betweenness":
+				// Calculates shortest paths -> decides if a node is needed to traverse many of those
 				Betweenness betweenness = new Betweenness(driver);
-
 				if(mode.equals("write")){
 					betweenness.write(ReductionConfig.GRAPH_NAME);
 				}
@@ -178,8 +177,8 @@ public class ReductionController implements AutoCloseable {
 				break;
 				
 			case "degree":
+				// Calculates in and out degree of nodes
 				Degree degree = new Degree(driver);
-
 				if(mode.equals("write")){
 					degree.write(ReductionConfig.GRAPH_NAME);
 				}
@@ -187,24 +186,25 @@ public class ReductionController implements AutoCloseable {
 				break;
 				
 			case "louvain":
+				// Maximizes a modularity score for each community -> deciding if a node is added or not
 				Louvain louvain = new Louvain(driver);
 				records = algorithmController.executeCommunityAlgorithm(mode, louvain, secondAlg);
 				alg += "-" + secondAlg;
 				break;
 				
 			case "labelP":
+				// Propagates labels over the graph to find communities
 				LabelPropagation labelP = new LabelPropagation(driver);
 				records = algorithmController.executeCommunityAlgorithm(mode, labelP, secondAlg);
 				alg += "-" + secondAlg;
 				break;
 	
 			default:
+				// no csv-export
 				return;
 		}
 
 		FileSystemNetworkController fsnController = new FileSystemNetworkController();
 		fsnController.exportToCSV(records, alg);
 	}
-
-
 }
