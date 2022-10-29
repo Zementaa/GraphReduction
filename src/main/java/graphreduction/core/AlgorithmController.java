@@ -11,17 +11,26 @@ import org.neo4j.driver.Session;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ *
+ */
 public class AlgorithmController {
 
-	private Driver driver;
+	private final Driver driver;
 
-	private String graphName;
+	private final String graphName;
 
 	public AlgorithmController(Driver driver, String graphName) {
 		this.driver = driver;
 		this.graphName = graphName;
 	}
 
+	/**
+	 *
+	 * @param centralityAlg
+	 * @param communities
+	 * @return
+	 */
 	public List<Record> executeCentralityAlgorithm(String centralityAlg, List<String> communities){
 
 		System.out.println(centralityAlg);
@@ -31,19 +40,18 @@ public class AlgorithmController {
 			case "betweenness":
 				Betweenness betweenness = new Betweenness(driver);
 
-				communities.forEach(com -> {
-					list.addAll(betweenness.streamWithNodeLabel(graphName, com, Integer.parseInt(com.replaceAll("\\D+",""))));
+				communities.forEach(com ->
+					list.addAll(betweenness.streamWithNodeLabel(graphName, com, Integer.parseInt(com.replaceAll("\\D+",""))))
 					// getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
-				});
+				);
 				break;
 
 			case "degree":
 				Degree degree = new Degree(driver);
 
-				communities.forEach(com -> {
-					list.addAll(degree.streamWithNodeLabel(graphName, com, Integer.parseInt(com.replaceAll("\\D+",""))));
-
-				});
+				communities.forEach(com ->
+					list.addAll(degree.streamWithNodeLabel(graphName, com, Integer.parseInt(com.replaceAll("\\D+",""))))
+				);
 				break;
 
 			default:
@@ -53,6 +61,13 @@ public class AlgorithmController {
 		return list;
 	}
 
+	/**
+	 *
+	 * @param mode
+	 * @param communityDetection
+	 * @param secondAlg
+	 * @return
+	 */
 	public List<Record> executeCommunityAlgorithm(String mode, CommunityDetectionImpl communityDetection, String secondAlg){
 
 		switch (mode) {
@@ -109,29 +124,34 @@ public class AlgorithmController {
 				return new ArrayList<>();
 
 		}
-		//System.out.println(list);
 		return list;
 	}
 
 
-
+	/**
+	 * Finds relationships to nodes within the community or counts distinct relationships to nodes outside the community.
+	 *
+	 * @param type either within or outside
+	 * @param communities List of community IDs
+	 * @param communityDetection specified communityDetectionImpl
+	 * @return List that contains all nodes that have relationships within or outside the community
+	 */
 	public List<Record> findRelationShips(String type, List<String> communities, CommunityDetectionImpl communityDetection){
 
 		List<Record> list = new ArrayList<>();
 
 		switch (type) {
 			case "within":
-				communities.forEach(com -> {
-					list.addAll(communityDetection.getNodesWithRelationshipsWithinCommunity(Integer.parseInt(com.replaceAll("\\D+",""))));
-					// getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
-				});
+				communities.forEach(com ->
+					list.addAll(communityDetection.getNodesWithRelationshipsWithinCommunity(Integer.parseInt(com.replaceAll("\\D+",""))))
+				);
 				break;
 
 			case "outside":
-				communities.forEach(com -> {
-					list.addAll(communityDetection.getNodesWithRelationshipsToOtherCommunities(Integer.parseInt(com.replaceAll("\\D+",""))));
+				communities.forEach(com ->
+					list.addAll(communityDetection.getNodesWithRelationshipsToOtherCommunities(Integer.parseInt(com.replaceAll("\\D+",""))))
 
-				});
+				);
 				break;
 
 			default:
@@ -152,8 +172,8 @@ public class AlgorithmController {
 
 			double summe = 0.0f;
 
-			for(int i =0; i< relationships.size(); i++) {
-				summe += relationships.get(i).get("dice").asDouble();
+			for (Record relationship : relationships) {
+				summe += relationship.get("dice").asDouble();
 			}
 
 			System.out.println(summe);
