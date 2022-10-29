@@ -16,16 +16,22 @@ public class ReductionConfig {
 
 	static final String PATH_TO_MARKED_NODES_LIST = "src/main/resources/input/marked_nodes.csv";
 
+	static final boolean CRAWL_FIRST = false;
+
+	// WARNING - permanently deletes nodes - make sure to have a copy
+	static final boolean DELETION_ACTIVATED = false; // set to true to DELETE nodes at the end of the algorithm
+
+	static final float THRESHOLD = 0.10F;
+
 	public enum Algorithms
 	{
-		BETWEENNESS("betweenness"), DEGREE("degree"), LOUVAIN("louvain"), LABEL_PROPAGATION("labelP"), WITHIN("within"), OUTSIDE("outside");
-
-		private String text;
+		BETWEENNESS("betweenness"), DEGREE("degree"), LOUVAIN("louvain"),
+		LABEL_PROPAGATION("labelP"), WITHIN("within"), OUTSIDE("outside");
+		private final String text;
 
 		Algorithms(String text) {
 			this.text = text;
 		}
-
 		public String getText() {
 			return text;
 		}
@@ -34,13 +40,24 @@ public class ReductionConfig {
 	public enum Modes
 	{
 		STREAM("stream"), WRITE("write");
-
-		private String text;
+		private final String text;
 
 		Modes(String text) {
 			this.text = text;
 		}
+		public String getText() {
+			return text;
+		}
+	}
 
+	public enum ReductionCriteria
+	{
+		LEAST_SCORE("least_score_percent"), NOT_IN_TOP("not_in_top_percent"), UNDER_SCORE("under_score");
+		private final String text;
+
+		ReductionCriteria(String text) {
+			this.text = text;
+		}
 		public String getText() {
 			return text;
 		}
