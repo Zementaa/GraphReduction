@@ -3,37 +3,41 @@ package main.java.graphreduction.core;
 import main.java.graphreduction.centrality.Betweenness;
 import main.java.graphreduction.centrality.Degree;
 import main.java.graphreduction.communitydetection.CommunityDetectionImpl;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.Record;
-import org.neo4j.driver.Result;
-import org.neo4j.driver.Session;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.neo4j.driver.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * The algorithm controller is in charge of all the operations containing algorithm execution.
+ * This includes executing centrality and community detection algorithms and finding relationships.
  *
+ * @author Catherine Camier
+ * @version 0.1.0
  */
 public class AlgorithmController {
 
+	final Logger logger = LogManager.getLogger();
+	
 	private final Driver driver;
+	
 
-	private final String graphName;
-
-	public AlgorithmController(Driver driver, String graphName) {
+	public AlgorithmController(Driver driver) {
 		this.driver = driver;
-		this.graphName = graphName;
 	}
 
 	/**
-	 *
-	 * @param centralityAlg
-	 * @param communities
-	 * @return
+	 * Executes a centrality algorithm.
+	 * 
+	 * @param centralityAlg Centrality algorithm
+	 * @param communities List of communities
+	 * @return List of records
 	 */
 	public List<Record> executeCentralityAlgorithm(String centralityAlg, List<String> communities){
 
-		System.out.println(centralityAlg);
+		logger.info(centralityAlg);
 		List<Record> list = new ArrayList<>();
 
 		switch (centralityAlg) {
@@ -41,7 +45,7 @@ public class AlgorithmController {
 				Betweenness betweenness = new Betweenness(driver);
 
 				communities.forEach(com ->
-					list.addAll(betweenness.streamWithNodeLabel(graphName, com, Integer.parseInt(com.replaceAll("\\D+",""))))
+					list.addAll(betweenness.streamWithNodeLabel(ReductionConfig.GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))))
 					// getDiceCoefficient(Integer.parseInt(com.replaceAll("\\D+","")));
 				);
 				break;
@@ -50,7 +54,7 @@ public class AlgorithmController {
 				Degree degree = new Degree(driver);
 
 				communities.forEach(com ->
-					list.addAll(degree.streamWithNodeLabel(graphName, com, Integer.parseInt(com.replaceAll("\\D+",""))))
+					list.addAll(degree.streamWithNodeLabel(ReductionConfig.GRAPH_NAME, com, Integer.parseInt(com.replaceAll("\\D+",""))))
 				);
 				break;
 
@@ -62,21 +66,23 @@ public class AlgorithmController {
 	}
 
 	/**
-	 *
-	 * @param mode
-	 * @param communityDetection
-	 * @param secondAlg
-	 * @return
+	 * First, executes a community detection algorithm in the specified mode. Then a second algorithm is executed:
+	 * Either a centrality algorithm or degree calculation.
+	 * 
+	 * @param mode Mode is stream or write
+	 * @param communityDetection Name of the community detection algorithm
+	 * @param secondAlg Name of the second algorithm
+	 * @return List of records
 	 */
 	public List<Record> executeCommunityAlgorithm(String mode, CommunityDetectionImpl communityDetection, String secondAlg){
 
 		switch (mode) {
 			case "stream":
-				communityDetection.stream(graphName);
+				communityDetection.stream(ReductionConfig.GRAPH_NAME);
 				break;
 
 			case "write":
-				communityDetection.write(graphName);
+				communityDetection.write(ReductionConfig.GRAPH_NAME);
 				break;
 
 			default:
@@ -84,15 +90,15 @@ public class AlgorithmController {
 
 		}
 
-		List<Record> ids = communityDetection.getIds(graphName);
+		List<Record> ids = communityDetection.getIds();
 
 		List<String> communities = new ArrayList<>();
 
 		GraphController controller = new GraphController(driver);
 
-		ids.forEach(record -> {
+		ids.forEach(rec -> {
 
-			List<Record> communityNodes = controller.getNodesByCommunityId(record.get("communityId").asInt());
+			List<Record> communityNodes = controller.getNodesByCommunityId(rec.get("communityId").asInt());
 			communityNodes.forEach(node -> {
 
 				controller.setNodeLabel(node.get(0).asString(), node.get(3).asInt());
@@ -103,9 +109,9 @@ public class AlgorithmController {
 			});
 		});
 
-		controller.recreateGraph(communities, graphName);
+		controller.recreateGraph(communities, ReductionConfig.GRAPH_NAME);
 
-		System.out.println("Anzahl Communities: " + communities.size());
+		logger.info("Anzahl Communities: {}", communities.size());
 
 		List<Record> list;
 
@@ -161,12 +167,18 @@ public class AlgorithmController {
 		return list;
 	}
 
+	/**
+	 * Calculates the Dice coefficient for a specified community's relationships.
+	 * 
+	 * @param communityId Community ID
+	 */
 	private void getDiceCoefficient(int communityId){
 		try (Session session = driver.session()) {
 			List<Record> relationships = session.writeTransaction(tx -> {
 				Result result = tx
-						.run("MATCH (n {communityId: " + communityId + "})-[r:IS_CONNECTED]->(c)\n"
-								+ "RETURN r.dice as dice");
+						.run("MATCH (n {communityId: $communityId})-[r:IS_CONNECTED]->(c)\n"
+								+ "RETURN r.dice as dice",
+								Values.parameters( "communityId", communityId));
 				return result.list();
 			});
 
@@ -176,7 +188,7 @@ public class AlgorithmController {
 				summe += relationship.get("dice").asDouble();
 			}
 
-			System.out.println(summe);
+			logger.info(summe);
 			//return nodePropertiesWritten.get("dice").asFloat();
 		}
 	}

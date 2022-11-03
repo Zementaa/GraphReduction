@@ -15,8 +15,8 @@ implemented algorithms: Betwennness Centrality, Degree Centrality, Louvain, Labe
 - org.neo4j.gds:proc:jar:1.8.8:compile
 - edu.uci.ics:crawler4j:jar:4.4.0:compile
 - org.junit.jupiter:junit-jupiter-api:jar:5.9.0:compile
-- org.apache.logging.log4j:log4j-core:jar:2.19.0:compile
-- org.apache.logging.log4j:log4j-api:jar:2.19.0:compile
+- org.apache.logging.log4j:log4j-core:jar:2.18.0:compile
+- org.apache.logging.log4j:log4j-api:jar:2.18.0:compile
 
 Crawler for News:
 https://github.com/yasserg/crawler4j
@@ -62,6 +62,3 @@ tendency to strengthen or break apart.
 ### Community Detection & Degree calculation
 1. Use a community detection algorithm.
 2. Calculate the degree within a community or to other communities
-
-## TBD
-Java Doc ergänzen

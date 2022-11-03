@@ -2,14 +2,14 @@ package main.java.graphreduction.communitydetection;
 
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.neo4j.driver.*;
 
 public abstract class CommunityDetectionImpl implements CommunityDetection{
 	
-private Driver driver;
-private static Logger logger = LoggerFactory.getLogger(CommunityDetectionImpl.class);
+	private Driver driver;
+	static final Logger logger = LogManager.getLogger();
 	
 	protected CommunityDetectionImpl(Driver driver) {
 		super();
@@ -17,7 +17,7 @@ private static Logger logger = LoggerFactory.getLogger(CommunityDetectionImpl.cl
 	}
 	
 	
-	public List<Record> getIds(String graphName) {
+	public List<Record> getIds() {
 
 		try (Session session = this.getDriver().session()) {
 			List<Record> ids = session.writeTransaction(tx -> {
@@ -25,7 +25,7 @@ private static Logger logger = LoggerFactory.getLogger(CommunityDetectionImpl.cl
 						+ "WITH DISTINCT n.communityId AS communityId RETURN communityId");
 				return result.list();
 			});
-			logger.info(ids.toString());
+			logger.info(ids);
 			return ids;
 
 		}
@@ -40,7 +40,7 @@ private static Logger logger = LoggerFactory.getLogger(CommunityDetectionImpl.cl
 						+ "ORDER BY relationships DESC ", Values.parameters( "communityId", communityId ));
 				return result.list();
 			});
-			logger.info(list.toString());
+			logger.info(list);
 			return list;
 
 		}
@@ -55,7 +55,7 @@ private static Logger logger = LoggerFactory.getLogger(CommunityDetectionImpl.cl
 						+ "ORDER BY relationships DESC ", Values.parameters( "communityId", communityId ));
 				return result.list();
 			});
-			//System.out.println(list);
+			logger.info(list);
 			return list;
 
 		}

@@ -4,6 +4,9 @@ import java.io.File;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import org.neo4j.driver.*;
 
 import main.java.graphreduction.centrality.Betweenness;
@@ -31,6 +34,8 @@ public class ReductionController implements AutoCloseable {
 
 	private static Driver driver;
 
+	static final Logger logger = LogManager.getLogger();
+
 	public ReductionController(String uri, String user, String password) {
 		driver = GraphDatabase.driver(uri, AuthTokens.basic(user, password));
 	}
@@ -51,9 +56,9 @@ public class ReductionController implements AutoCloseable {
 
 		boolean isAlive = fsnController.isSocketAlive("localhost", ReductionConfig.NEO4J_PORT);
 
-		System.out.println("Neo4j Console wurde gestartet: " + isAlive);
+		logger.info("Neo4j Console started: {}", isAlive);
 		if (!isAlive) {
-			System.out.println("Neo4j console muss zunächst gestartet werden.");
+			logger.info("Neo4j console must be started.");
 			return;
 		}
 		try (ReductionController controller = new ReductionController(
@@ -85,7 +90,7 @@ public class ReductionController implements AutoCloseable {
 			graphController.markNodes(nodes);
 			
 			// Set algorithm and mode
-			String alg = ReductionConfig.Algorithms.LABEL_PROPAGATION.getText();
+			String alg = ReductionConfig.Algorithms.LOUVAIN.getText();
 			// stream, write
 			// must always be 'write' for community detection
 			String mode = ReductionConfig.Modes.WRITE.getText();
@@ -103,15 +108,13 @@ public class ReductionController implements AutoCloseable {
 			float threshold = ReductionConfig.THRESHOLD;
 
 			final long createdMillis = System.currentTimeMillis();
-			System.out.println("Vorher: Es befinden sich " + graphController.getNumberOfNodesInGraph() +
-					" Knoten im Graph.");
+			logger.info("Before: Graph contains {} nodes." , graphController.getNumberOfNodesInGraph());
 			useAlgorithm(alg, mode, secondAlg);
-			System.out.println("Nachher: Es befinden sich " + graphController.getNumberOfNodesInGraph() +
-					" Knoten im Graph.");
+			logger.info("After: Graph contains {} nodes." , graphController.getNumberOfNodesInGraph());
 
 			long nowMillis = System.currentTimeMillis();
-			System.out.println("Algorithm took " + ((nowMillis - createdMillis) / 1000) + " seconds / "
-					+ (nowMillis - createdMillis) + " milliseconds for completion.");
+			logger.info("Algorithm took {} seconds / {} milliseconds for completion." ,
+					((nowMillis - createdMillis) / 1000) ,(nowMillis - createdMillis));
 
 			if(ReductionConfig.DELETION_ACTIVATED){
 				graphController.deleteNodesByCriteria(reductionCriteria, threshold);
@@ -121,23 +124,22 @@ public class ReductionController implements AutoCloseable {
 	/**
 	 * Crawls the specified archive folder of the Evening Standard.
 	 * <p>
-	 * Es werden alle Artikel heruntergeladen, die thematisch in den Ukraine-Russland-Konflikt passen.
-	 * Es wird nur der Bereich vier Wochen nach dem Beginn des Konflikts gecrawlt.
-	 * Andere Konfigurationen können hinterlegt werden.
+	 * All articles on the Ukraine-Russia-conflict are downloadet.
+	 * Only the four weeks after the Russian invasion are crawled.
+	 * Other configurations can be made.
 	 *
 	 */
 	private static void crawlNewspaper() throws Exception {
 
-		CrawlConfig crawlConfig = new CrawlConfig();
-		CrawlController controller = new CrawlController(crawlConfig);
+		CrawlController controller = new CrawlController();
 
 		controller.crawl();
 	}
 
 	/**
-	 * Initialisiert den Graphen
+	 * Initializes the graph
 	 * <p>
-	 * Es werden alle Node Labels gelöscht und ein frischer Graph erstellt.
+	 * All node labels are deleted and a fresh graph is created.
 	 *
 	 */
 	private static void init(GraphController graphController) {
@@ -153,18 +155,18 @@ public class ReductionController implements AutoCloseable {
 		graphController.deleteScores();
 		
 		// create graph if not exists
-		graphController.createGraph(ReductionConfig.GRAPH_NAME);
+		graphController.createGraph();
 	}
 
 	/**
-	 * Führt den angegebenen Algorithmus im angegeben Modus aus.
+	 * Executes the specified algorithm in the specified mode.
 	 *
-	 * @param alg Der Algorithmus der benutzt werden soll
-	 * @param mode Der Modus, in dem der Algorithmus ausgeführt werden soll (stream oder write)
+	 * @param alg Algorithm that should be used
+	 * @param mode Mode, that the algorithm is executed in (stream or write)
 	 */
 	private static void useAlgorithm(String alg, String mode, String secondAlg){
 		List<Record> records;
-		AlgorithmController algorithmController = new AlgorithmController(driver, ReductionConfig.GRAPH_NAME);
+		AlgorithmController algorithmController = new AlgorithmController(driver);
 
 		switch (alg) {
 			case "betweenness":

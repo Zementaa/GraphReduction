@@ -14,18 +14,33 @@ import org.neo4j.driver.Record;
  * <ul>
  *     <li> stream - reads from graph </li>
  *     <li> write - writes to graph </li>
- *     <li> stats - evaluates algorithm performance on graph </li>
- *     <li> mutate - writes and evaluates, useful when multiple algorithms are used in conjunction </li>
  * </ul>
+ *
+ * <p>
+ * Community detection algorithms are used to evaluate how groups of nodes are clustered or partitioned,
+ * as well as their tendency to strengthen or break apart.
+ * <p>
+ * Also see: <a href="https://neo4j.com/docs/graph-data-science/1.8/algorithms/community/">Neo4j docs</a>
  *
  * @author Catherine Camier
  * @version 0.1.0
  */
 public interface CommunityDetection {
 
-	public List<Record> stream(String graphName);
-	
-	public void write(String graphName);
-	
-	
+	/**
+	 * The stream mode will return the results of the algorithm computation as Cypher result rows.
+	 *
+	 * @param graphName Name of the graph
+	 * @return List of Records
+	 */
+	List<Record> stream(String graphName);
+
+	/**
+	 * The write mode will write the results of the algorithm computation back to the Neo4j database.
+	 * The written data is a node property called 'communityId'.
+	 *
+	 * @param graphName Name of the graph
+	 */
+	void write(String graphName);
+
 }

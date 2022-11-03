@@ -1,5 +1,11 @@
 package main.java.graphreduction.crawler;
 
+/**
+ * Statistics for the crawling.
+ *
+ * @author Catherine Camier
+ * @version 0.1.0
+ */
 public class CrawlerStatistics {
 
     private int processedPageCount = 0;

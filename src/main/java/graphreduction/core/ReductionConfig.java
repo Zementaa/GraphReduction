@@ -1,5 +1,11 @@
 package main.java.graphreduction.core;
 
+/**
+ * The ReductionConfig Class specifies all the configuration that the reduction program needs.
+ *
+ * @author Catherine Camier
+ * @version 0.1.0
+ */
 public class ReductionConfig {
 
 	static final String GRAPH_NAME = "ukraine";

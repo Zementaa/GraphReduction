@@ -6,33 +6,31 @@ import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 
 import java.io.File;
 
+/**
+ * The crawl controller is in charge of all the web crawling operations.
+ *
+ * @author Catherine Camier
+ * @version 0.1.0
+ */
 public class CrawlController {
-	CrawlConfig crawlConfig;
 
-	public CrawlController(CrawlConfig config) {
-		this.crawlConfig = config;
-	}
-
-	public CrawlConfig getCrawlConfig() {
-		return crawlConfig;
-	}
-
-	public void setCrawlConfig(CrawlConfig crawlConfig) {
-		this.crawlConfig = crawlConfig;
-	}
-
+	/**
+	 * The crawl method configures the crawler and crawls all the specified web pages.
+	 *
+	 * @throws Exception
+	 */
 	public void crawl() throws Exception {
 		File crawlStorage = new File("src/test/resources/crawler4j");
 		edu.uci.ics.crawler4j.crawler.CrawlConfig config = new edu.uci.ics.crawler4j.crawler.CrawlConfig();
 		config.setCrawlStorageFolder(crawlStorage.getAbsolutePath());
 
-		config.setMaxDepthOfCrawling(crawlConfig.MAX_DEPTH);
-		config.setMaxPagesToFetch(crawlConfig.MAX_PAGES_TO_FETCH);
-		config.setIncludeHttpsPages(crawlConfig.INCLUDE_HTTPS_PAGES);
-		config.setShutdownOnEmptyQueue(crawlConfig.SHUT_DOWN_ON_EMPTY_QUEUE);
-		config.setThreadMonitoringDelaySeconds(crawlConfig.THREAD_MONITORING_DELAY_SEC);
-		config.setThreadShutdownDelaySeconds(crawlConfig.THREAD_SHUTDOWN_DELAY_SEC);
-		config.setCleanupDelaySeconds(crawlConfig.CLEANUP_DELAY_SEC);
+		config.setMaxDepthOfCrawling(CrawlConfig.MAX_DEPTH);
+		config.setMaxPagesToFetch(CrawlConfig.MAX_PAGES_TO_FETCH);
+		config.setIncludeHttpsPages(CrawlConfig.INCLUDE_HTTPS_PAGES);
+		config.setShutdownOnEmptyQueue(CrawlConfig.SHUT_DOWN_ON_EMPTY_QUEUE);
+		config.setThreadMonitoringDelaySeconds(CrawlConfig.THREAD_MONITORING_DELAY_SEC);
+		config.setThreadShutdownDelaySeconds(CrawlConfig.THREAD_SHUTDOWN_DELAY_SEC);
+		config.setCleanupDelaySeconds(CrawlConfig.CLEANUP_DELAY_SEC);
 
 		PageFetcher pageFetcher = new PageFetcher(config);
 		RobotstxtConfig robotstxtConfig = new RobotstxtConfig();
@@ -75,6 +73,6 @@ public class CrawlController {
 		CrawlerStatistics stats = new CrawlerStatistics();
 		edu.uci.ics.crawler4j.crawler.CrawlController.WebCrawlerFactory<HtmlCrawler> factory = () -> new HtmlCrawler(stats);
 
-		controller.start(factory, crawlConfig.NUM_CRAWLERS);
+		controller.start(factory, CrawlConfig.NUM_CRAWLERS);
 	}
 }

@@ -1,8 +1,9 @@
 package main.java.graphreduction.core;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.neo4j.driver.Record;
 
-import java.awt.*;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -11,10 +12,23 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
+/**
+ * The filesystem and network controller is in charge of all the operations containing file system and network.
+ * This includes opening a list, export to csv and checking if the socket is alive .
+ *
+ * @author Catherine Camier
+ * @version 0.1.0
+ */
 public class FileSystemNetworkController {
+	
+	final Logger logger = LogManager.getLogger();
 
+	/**
+	 * Opens a list from the specified path to the file that contains the nodes that should be marked.
+	 *
+	 * @param pathToFile Path to the file
+	 * @return List with the marked nodes
+	 */
 	public List<String> openList(String pathToFile){
 		List<String> nodes = new ArrayList<>();
 		try (BufferedReader br = new BufferedReader(new FileReader(pathToFile))) {
@@ -24,15 +38,19 @@ public class FileSystemNetworkController {
 				nodes.add(value);
 			}
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.info("FileNotFoundException - {}", e.getMessage());
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.info("IOException - {}", e.getMessage());
 		}
 		return nodes;
 	}
 
+	/**
+	 * Exports the list of records to a csv-file with the specified name.
+	 *
+	 * @param records List of records
+	 * @param fileName Name of the file that is created
+	 */
 	public void exportToCSV(List<Record> records, String fileName){
 		long timestamp = System.currentTimeMillis();
 		File csvOutputFile = new File("output/" + fileName + "/" + fileName + timestamp + ".csv");
@@ -42,18 +60,15 @@ public class FileSystemNetworkController {
 			directory.mkdir();
 		}
 		try (PrintWriter pw = new PrintWriter(csvOutputFile)) {
-			System.out.println(records);
-			System.out.println(records.size());
+			logger.info(records);
 			pw.println("name;score;marked;communityId;occur;relationships");
-			records.stream().forEach(record -> {
-				pw.println( record.get("name") + ";" + record.get("score").toString().replace(".", ",") + ";" + record.get("marked") + ";" + record.get("communityId") + ";" + record.get("occur") + ";" + record.get("relationships"));
-			});
+			records.stream().forEach(rec ->
+				pw.println( rec.get("name") + ";" + rec.get("score").toString().replace(".", ",") + ";" + rec.get("marked") + ";" + rec.get("communityId") + ";" + rec.get("occur") + ";" + rec.get("relationships"))
+			);
 		}
 		catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.info("FileNotFoundException - {}", e.getMessage());
 		}
-		assertTrue(csvOutputFile.exists());
 	}
 
 	/**
@@ -64,8 +79,7 @@ public class FileSystemNetworkController {
 	 *
 	 * @param hostName the host name on which neo4j is running. Usually localhost.
 	 * @param port the port that is used for the neo4j browser
-	 * @return isAlive
-	 * @see Image
+	 * @return The boolean isAlive
 	 */
 	public Boolean isSocketAlive(String hostName, int port) {
 		boolean isAlive = false;
@@ -81,12 +95,11 @@ public class FileSystemNetworkController {
 			isAlive = true;
 
 		} catch (SocketTimeoutException exception) {
-			System.out.println("SocketTimeoutException " + hostName + ":" + port + ". " + exception.getMessage());
+			logger.info("SocketTimeoutException {}:{}. {}", hostName, port, exception.getMessage());
 		} catch (IOException exception) {
-			System.out.println(
-					"IOException - Unable to connect to " + hostName + ":" + port + ". " + exception.getMessage());
-
-		}
+			logger.info(
+					"IOException - Unable to connect to {}:{}. {}", hostName, port, exception.getMessage());
+		} 
 		return isAlive;
 	}
 }
