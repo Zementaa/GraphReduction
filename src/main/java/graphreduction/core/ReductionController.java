@@ -14,7 +14,6 @@ import main.java.graphreduction.centrality.Degree;
 import main.java.graphreduction.communitydetection.LabelPropagation;
 import main.java.graphreduction.communitydetection.Louvain;
 import main.java.graphreduction.crawler.CrawlController;
-import main.java.graphreduction.crawler.CrawlConfig;
 
 /**
  * The reduction controller is the main class of the reduction project.
@@ -90,7 +89,7 @@ public class ReductionController implements AutoCloseable {
 			graphController.markNodes(nodes);
 			
 			// Set algorithm and mode
-			String alg = ReductionConfig.Algorithms.LOUVAIN.getText();
+			String alg = ReductionConfig.Algorithms.BETWEENNESS.getText();
 			// stream, write
 			// must always be 'write' for community detection
 			String mode = ReductionConfig.Modes.WRITE.getText();
@@ -98,7 +97,7 @@ public class ReductionController implements AutoCloseable {
 			// If community algorithm is used, set centrality or degree calc algorithm here
 			// centrality alg: betweenness, degree
 			// hub node type: within, outside
-			String secondAlg = ReductionConfig.Algorithms.BETWEENNESS.getText();
+			String secondAlg = ReductionConfig.Algorithms.WITHIN.getText();
 
 			// Criteria by that the specified graph should be reduced
 			// least_score_percent - for example least 10 % (0.1) of all scores
@@ -110,7 +109,6 @@ public class ReductionController implements AutoCloseable {
 			final long createdMillis = System.currentTimeMillis();
 			logger.info("Before: Graph contains {} nodes." , graphController.getNumberOfNodesInGraph());
 			useAlgorithm(alg, mode, secondAlg);
-			logger.info("After: Graph contains {} nodes." , graphController.getNumberOfNodesInGraph());
 
 			long nowMillis = System.currentTimeMillis();
 			logger.info("Algorithm took {} seconds / {} milliseconds for completion." ,
@@ -119,6 +117,8 @@ public class ReductionController implements AutoCloseable {
 			if(ReductionConfig.DELETION_ACTIVATED){
 				graphController.deleteNodesByCriteria(reductionCriteria, threshold);
 			}
+			logger.info("After: Graph contains {} nodes." , graphController.getNumberOfNodesInGraph());
+
 		}
 	}
 	/**

@@ -51,7 +51,7 @@ public class GraphController {
 								Values.parameters( "graphName", ReductionConfig.GRAPH_NAME));
 				return result.single().get(0).toString();
 			});
-			logger.info("Graph 'ukraine' existiert bereits? {}", exists);
+			logger.info("Graph 'ukraine' already exists? {}", exists);
 		}
 
 		if(!exists.equals("TRUE")) {
